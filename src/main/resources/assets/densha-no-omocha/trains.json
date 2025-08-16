@@ -1,0 +1,48 @@
+{
+  "toy_locomotive": {
+    "name": "Toy Locomotive",
+    "description": "A toy wooden locomotive",
+    "icon": "densha-no-omocha:trains/toy_train/locomotive_preview.png",
+    "model": "densha-no-omocha:trains/toy_train/locomotive.obj",
+    "length": 7.95,
+    "bogieInset": 0.18,
+    "flipv": false,
+    "isReversed": true,
+    "heightOffset": 0.0,
+    "bogies": [
+      {
+            "model": "densha-no-omocha:trains/toy_train/bogie.obj",
+            "position": "FRONT",
+            "inset": 0.1
+      },
+      {
+            "model": "densha-no-omocha:trains/toy_train/bogie_back.obj",
+            "position": "REAR",
+            "inset": 0.4
+      }
+    ]
+  },
+  "toy_passenger_car_1": {
+    "name": "Toy Passenger Car",
+    "description": "A toy wooden passenger carriage",
+    "icon": "densha-no-omocha:trains/toy_train/carriage_1_preview.png",
+    "model": "densha-no-omocha:trains/toy_train/carriage_1.obj",
+    "length": 7.95,
+    "bogieInset": 0.2,
+    "flipv": false,
+    "isReversed": true,
+    "heightOffset": 0.0,
+    "bogies": [
+        {
+            "model": "densha-no-omocha:trains/toy_train/bogie.obj",
+            "position": "FRONT",
+            "inset": 0.12
+        },
+        {
+            "model": "densha-no-omocha:trains/toy_train/bogie.obj",
+            "position": "REAR",
+            "inset": 0.28
+        }
+    ]
+  }
+}

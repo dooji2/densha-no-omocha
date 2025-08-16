@@ -1,0 +1,8 @@
+newmtl Material.003
+Kd 1 1 1
+d 1
+map_Kd wood_2.png
+newmtl Material.001
+Kd 1 1 1
+d 1
+map_Kd wood_5.png

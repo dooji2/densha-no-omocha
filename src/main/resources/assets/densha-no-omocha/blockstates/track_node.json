@@ -1,0 +1,19 @@
+{
+  "variants": {
+    "facing=north": {
+      "model": "densha-no-omocha:block/track_node",
+      "y": 180
+    },
+    "facing=east": {
+      "model": "densha-no-omocha:block/track_node",
+      "y": 270
+    },
+    "facing=south": {
+      "model": "densha-no-omocha:block/track_node"
+    },
+    "facing=west": {
+      "model": "densha-no-omocha:block/track_node",
+      "y": 90
+    }
+  }
+}

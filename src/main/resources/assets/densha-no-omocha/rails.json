@@ -1,0 +1,14 @@
+{
+	"default": {
+        "name": "Default (Toy Track)",
+        "model": "densha-no-omocha:rails/rail.obj",
+		"repeatInterval": 1,
+        "icon": "densha-no-omocha:rails/toy_track_preview.png",
+        "description": "The default look of tracks."
+    },
+    "invisible": {
+        "name": "Invisible",
+        "repeatInterval": 1,
+        "description": "A model-less track."
+    }
+}

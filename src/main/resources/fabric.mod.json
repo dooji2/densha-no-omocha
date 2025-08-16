@@ -1,0 +1,38 @@
+{
+	"schemaVersion": 1,
+	"id": "densha-no-omocha",
+	"version": "${version}",
+	"name": "Densha no Omocha",
+	"description": "An experimental version of an upcoming train mod. Adds toy trains to Minecraft!",
+	"authors": [
+		"Dooji"
+	],
+	"contact": {
+		"homepage": "https://modrinth.com/mod/densha-no-omocha",
+		"sources": "https://github.com/dooji2/densha-no-omocha"
+	},
+	"license": "GPL-v3",
+	"icon": "assets/densha-no-omocha/icon.png",
+	"environment": "*",
+	"entrypoints": {
+		"main": [
+			"com.dooji.dno.TrainMod"
+		],
+		"client": [
+			"com.dooji.dno.TrainModClient"
+		]
+	},
+	"mixins": [
+		"densha-no-omocha.mixins.json",
+		{
+			"config": "densha-no-omocha.client.mixins.json",
+			"environment": "client"
+		}
+	],
+	"depends": {
+		"fabricloader": ">=0.16.14",
+		"minecraft": "~1.21.8",
+		"java": ">=21",
+		"fabric-api": ">=0.130.0+1.21.8"
+	}
+}

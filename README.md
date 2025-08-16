@@ -3,7 +3,8 @@
 An experimental version of an upcoming train mod. Adds toy trains to Minecraft!
 
 ## About
-電車のおもちゃ Densha no Omocha was created for ModFest: ToyBox. This is an early experimental project, so expect bugs and performance issues for now.
+<img src="https://raw.githubusercontent.com/ModFest/art/refs/heads/v2/badge/svg/toybox/compact.svg">
+電車のおもちゃ Densha no Omocha was created for ModFest: ToyBox in ~3 weeks. This is an early experimental project, so expect bugs and performance issues for now.
 
 ## Features
 - Tracks that connect with nodes

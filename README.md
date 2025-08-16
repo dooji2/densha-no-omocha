@@ -25,3 +25,12 @@ To place tracks, use track nodes. Right click the first node with the Track Item
 
 ## And one more thing...
 Boarding should be a thing in a day or a few hours from when this README is created. As for manual driving and other things, Densha no Omocha will become a train mod separate from this project, that will add many things a train mod should have. In the meantime, Densha no Omocha will probably get route support and more tweaks that are required for ModFest: ToyBox.
+
+## Currently known bugs:
+- Sloped curves may be the wrong way
+- Slight door animation glitch
+- No minimum radius set
+- Trains start from the center of first node of depot track (and yes, startNode matters for now)
+- Train movement is not smooth enough (I should maybe move the train on client and have it wait at platform until server arrives too, and only then open doors)
+- Node block model is still rendered when it has at least 1 connection
+- Some materials aren't found for some OBJ files ??

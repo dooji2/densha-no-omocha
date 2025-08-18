@@ -17,6 +17,17 @@
   "gui.dno.track_config.title": "Track Configuration",
   "gui.dno.track_config.tab.track": "Track",
   "gui.dno.track_config.tab.train": "Train",
+  "gui.dno.track_config.tab.route": "Route",
+  "gui.dno.track_config.create_route": "Create Route",
+  "gui.dno.track_config.assign_route": "Assign Route",
+  "gui.dno.track_config.route_name": "Route Name",
+  "gui.dno.route.available_routes": "Available Routes",
+  "gui.dno.route.no_routes": "No routes available",
+  "gui.dno.create_route.title": "Create New Route",
+  "gui.dno.create_route.name": "Route Name",
+  "gui.dno.create_route.available_stations": "Available Stations",
+  "gui.dno.create_route.selected_stations": "Selected Stations",
+  "gui.dno.create_route.create": "Create Route",
   "gui.dno.track_config.type": "Type: %s",
   "gui.dno.track_config.max_speed": "Max Speed",
   "gui.dno.track_config.station_name": "Station Name",
@@ -32,5 +43,6 @@
   "gui.dno.train_config.front": "Front",
   "gui.dno.train_config.back": "Back",
   "gui.dno.common.save": "Save",
-  "gui.dno.common.cancel": "Cancel"
+  "gui.dno.common.cancel": "Cancel",
+  "gui.dno.common.back": "Back"
 }

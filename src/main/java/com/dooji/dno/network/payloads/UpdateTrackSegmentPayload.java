@@ -7,7 +7,7 @@ import net.minecraft.network.packet.CustomPayload;
 import net.minecraft.util.Identifier;
 import net.minecraft.util.math.BlockPos;
 
-public record UpdateTrackSegmentPayload(BlockPos start, BlockPos end, String modelId, String type, int dwellTimeSeconds, double slopeCurvature, String trainId, int maxSpeedKmh, String stationName, String stationId) implements CustomPayload {
+public record UpdateTrackSegmentPayload(BlockPos start, BlockPos end, String modelId, String type, int dwellTimeSeconds, double slopeCurvature, String trainId, String routeId, int maxSpeedKmh, String stationName, String stationId) implements CustomPayload {
     public static final CustomPayload.Id<UpdateTrackSegmentPayload> ID = new CustomPayload.Id<>(Identifier.of(TrainMod.MOD_ID, "update_track_segment"));
 
     public static final PacketCodec<PacketByteBuf, UpdateTrackSegmentPayload> CODEC = PacketCodec.ofStatic(
@@ -23,6 +23,13 @@ public record UpdateTrackSegmentPayload(BlockPos start, BlockPos end, String mod
             
             if (hasTrainId) {
                 buf.writeString(payload.trainId());
+            }
+            
+            boolean hasRouteId = payload.routeId() != null;
+            buf.writeBoolean(hasRouteId);
+            
+            if (hasRouteId) {
+                buf.writeString(payload.routeId());
             }
             
             buf.writeInt(payload.maxSpeedKmh());
@@ -43,10 +50,16 @@ public record UpdateTrackSegmentPayload(BlockPos start, BlockPos end, String mod
                 trainId = buf.readString();
             }
 
+            String routeId = null;
+            boolean hasRouteId = buf.readBoolean();
+            if (hasRouteId) {
+                routeId = buf.readString();
+            }
+
             int maxSpeedKmh = buf.readInt();
             String stationName = buf.readString();
             String stationId = buf.readString();
-            return new UpdateTrackSegmentPayload(start, end, modelId, type, dwellTimeSeconds, slopeCurvature, trainId, maxSpeedKmh, stationName, stationId);
+            return new UpdateTrackSegmentPayload(start, end, modelId, type, dwellTimeSeconds, slopeCurvature, trainId, routeId, maxSpeedKmh, stationName, stationId);
         }
     );
 

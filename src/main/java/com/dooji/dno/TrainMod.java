@@ -6,11 +6,13 @@ import com.dooji.dno.registry.TrainModBlocks;
 import com.dooji.dno.registry.TrainModItemGroups;
 import com.dooji.dno.registry.TrainModItems;
 import com.dooji.dno.track.TrackManager;
-import com.dooji.dno.train.TrainManager;
+import com.dooji.dno.track.RouteManager;
 import com.dooji.dno.track.TrackPersistenceHandler;
-import net.fabricmc.api.ModInitializer;
+import com.dooji.dno.train.TrainManager;
 
+import net.fabricmc.api.ModInitializer;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerWorldEvents;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -28,6 +30,7 @@ public class TrainMod implements ModInitializer {
 
 		ServerWorldEvents.LOAD.register((server, world) -> {
 			TrackManager.loadTracks(world);
+			RouteManager.loadRoutes(world);
 			TrainManager.loadTrains(world);
 
 			TrainModNetworking.broadcastTrainSync(world);
@@ -36,6 +39,7 @@ public class TrainMod implements ModInitializer {
 		ServerWorldEvents.UNLOAD.register((server, world) -> {
 			if (world != null) {
 				TrackPersistenceHandler.saveTracks(world, TrackManager.getTracksFor(world));
+				RouteManager.saveRoutes(world);
 				TrainManager.saveTrains(world);
 				TrackManager.clearWorldData(world);
 			}

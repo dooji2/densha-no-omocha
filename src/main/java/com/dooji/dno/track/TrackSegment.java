@@ -13,6 +13,7 @@ public class TrackSegment {
     private final String modelId;
     private final String type;
     private String trainId;
+    private String routeId;
     private int dwellTimeSeconds;
     private double slopeCurvature;
     private int maxSpeedKmh;
@@ -31,6 +32,7 @@ public class TrackSegment {
         this.modelId = modelId;
         this.type = type;
         this.trainId = null;
+        this.routeId = null;
         this.dwellTimeSeconds = 15;
         this.slopeCurvature = 0.0;
         this.maxSpeedKmh = 80;
@@ -76,6 +78,14 @@ public class TrackSegment {
 
     public void setTrainId(String trainId) {
         this.trainId = trainId;
+    }
+
+    public String getRouteId() {
+        return routeId;
+    }
+
+    public void setRouteId(String routeId) {
+        this.routeId = routeId;
     }
 
     public int getDwellTimeSeconds() {
@@ -145,11 +155,22 @@ public class TrackSegment {
             nbt.putString("trainId", trainId);
         }
 
+        if (routeId != null) {
+            nbt.putString("routeId", routeId);
+        }
+
         nbt.putInt("dwellTimeSeconds", dwellTimeSeconds);
         nbt.putDouble("slopeCurvature", slopeCurvature);
         nbt.putInt("maxSpeedKmh", maxSpeedKmh);
-        nbt.putString("stationName", stationName);
-        nbt.putString("stationId", stationId);
+        
+        if (stationName != null) {
+            nbt.putString("stationName", stationName);
+        }
+        
+        if (stationId != null) {
+            nbt.putString("stationId", stationId);
+        }
+        
         return nbt;
     }
 
@@ -181,6 +202,10 @@ public class TrackSegment {
         TrackSegment segment = new TrackSegment(start, end, startDirection, endDirection, modelId, type);
         if (nbt.contains("trainId")) {
             segment.setTrainId(nbt.getString("trainId").orElse(null));
+        }
+
+        if (nbt.contains("routeId")) {
+            segment.setRouteId(nbt.getString("routeId").orElse(null));
         }
 
         if (nbt.contains("dwellTimeSeconds")) {

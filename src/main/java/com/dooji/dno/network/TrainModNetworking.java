@@ -2,6 +2,7 @@ package com.dooji.dno.network;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 import com.dooji.dno.track.TrackManager;
@@ -20,6 +21,11 @@ import com.dooji.dno.network.payloads.RequestDisembarkPayload;
 import com.dooji.dno.network.payloads.PlayerPositionUpdatePayload;
 import com.dooji.dno.network.payloads.BoardingResponsePayload;
 import com.dooji.dno.network.payloads.BoardingSyncPayload;
+import com.dooji.dno.network.payloads.SyncRoutesPayload;
+import com.dooji.dno.network.payloads.CreateRoutePayload;
+import com.dooji.dno.network.payloads.AssignRoutePayload;
+import com.dooji.dno.track.Route;
+import com.dooji.dno.track.RouteManager;
 
 import net.fabricmc.fabric.api.entity.event.v1.ServerEntityWorldChangeEvents;
 import net.fabricmc.fabric.api.entity.event.v1.ServerPlayerEvents;
@@ -27,10 +33,10 @@ import net.fabricmc.fabric.api.networking.v1.PayloadTypeRegistry;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
 
-import net.minecraft.nbt.NbtCompound;
 import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.server.world.ServerWorld;
 import net.minecraft.util.math.BlockPos;
+import net.minecraft.nbt.NbtCompound;
  
 public class TrainModNetworking {
     public static void initialize() {
@@ -41,15 +47,19 @@ public class TrainModNetworking {
         PayloadTypeRegistry.playS2C().register(TrainSyncPayload.ID, TrainSyncPayload.CODEC);
         PayloadTypeRegistry.playS2C().register(BoardingResponsePayload.ID, BoardingResponsePayload.CODEC);
         PayloadTypeRegistry.playS2C().register(BoardingSyncPayload.ID, BoardingSyncPayload.CODEC);
+        PayloadTypeRegistry.playS2C().register(SyncRoutesPayload.ID, SyncRoutesPayload.CODEC);
 
         PayloadTypeRegistry.playC2S().register(PlaceTrackSegmentPayload.ID, PlaceTrackSegmentPayload.CODEC);
         PayloadTypeRegistry.playC2S().register(BreakTrackSegmentPayload.ID, BreakTrackSegmentPayload.CODEC);
         PayloadTypeRegistry.playC2S().register(UpdateTrackSegmentPayload.ID, UpdateTrackSegmentPayload.CODEC);
         PayloadTypeRegistry.playC2S().register(UpdateTrainConfigPayload.ID, UpdateTrainConfigPayload.CODEC);
         PayloadTypeRegistry.playC2S().register(RefreshTrainPathPayload.ID, RefreshTrainPathPayload.CODEC);
+        PayloadTypeRegistry.playC2S().register(CreateRoutePayload.ID, CreateRoutePayload.CODEC);
+        PayloadTypeRegistry.playC2S().register(AssignRoutePayload.ID, AssignRoutePayload.CODEC);
         PayloadTypeRegistry.playC2S().register(RequestBoardingPayload.ID, RequestBoardingPayload.CODEC);
         PayloadTypeRegistry.playC2S().register(RequestDisembarkPayload.ID, RequestDisembarkPayload.CODEC);
         PayloadTypeRegistry.playC2S().register(PlayerPositionUpdatePayload.ID, PlayerPositionUpdatePayload.CODEC);
+        PayloadTypeRegistry.playC2S().register(SyncRoutesPayload.ID, SyncRoutesPayload.CODEC);
 
         ServerPlayConnectionEvents.JOIN.register((handler, sender, server) -> {
             syncTracksToPlayer(handler.getPlayer());
@@ -99,7 +109,39 @@ public class TrainModNetworking {
                 return;
             }
 
-            TrackManager.updateTrackSegment(world, start, end, payload.modelId(), payload.type(), payload.dwellTimeSeconds(), payload.slopeCurvature(), payload.maxSpeedKmh(), payload.stationName(), payload.stationId());
+            TrackManager.updateTrackSegment(world, start, end, payload.modelId(), payload.type(), payload.dwellTimeSeconds(), payload.slopeCurvature(), payload.routeId(), payload.maxSpeedKmh(), payload.stationName(), payload.stationId());
+        });
+
+        ServerPlayNetworking.registerGlobalReceiver(CreateRoutePayload.ID, (payload, context) -> {
+            ServerPlayerEntity player = context.player();
+            if (player != null) {
+                Route route = new Route(payload.displayName(), payload.stationIds());
+                RouteManager.addRoute(route);
+                
+                broadcastRoutesSync((ServerWorld) player.getWorld());
+            }
+        });
+
+        ServerPlayNetworking.registerGlobalReceiver(AssignRoutePayload.ID, (payload, context) -> {
+            ServerPlayerEntity player = context.player();
+            ServerWorld world = (ServerWorld) player.getWorld();
+            if (world != null) {
+                TrackManager.updateTrackSegment(world, payload.start(), payload.end(), null, null, 0, 0.0, payload.routeId(), 0, null, null);
+            }
+        });
+
+        ServerPlayNetworking.registerGlobalReceiver(SyncRoutesPayload.ID, (payload, context) -> {
+            ServerPlayerEntity player = context.player();
+            List<Route> routes = RouteManager.getAllRoutes();
+            
+            if (!routes.isEmpty()) {
+                Map<String, NbtCompound> routeDataMap = new HashMap<>();
+                for (Route route : routes) {
+                    routeDataMap.put(route.getRouteId(), route.toNbt());
+                }
+                
+                ServerPlayNetworking.send(player, new SyncRoutesPayload(routeDataMap));
+            }
         });
 
         ServerPlayNetworking.registerGlobalReceiver(UpdateTrainConfigPayload.ID, (payload, context) -> {
@@ -151,6 +193,16 @@ public class TrainModNetworking {
 
         if (!tags.isEmpty()) {
             ServerPlayNetworking.send(player, new SyncTracksPayload(tags));
+        }
+
+        List<Route> routes = RouteManager.getAllRoutes();
+        if (!routes.isEmpty()) {
+            Map<String, NbtCompound> routeDataMap = new HashMap<>();
+            for (Route route : routes) {
+                routeDataMap.put(route.getRouteId(), route.toNbt());
+            }
+
+            ServerPlayNetworking.send(player, new SyncRoutesPayload(routeDataMap));
         }
 
         syncTrainsToPlayer(player);
@@ -273,6 +325,7 @@ public class TrainModNetworking {
             segment.getDwellTimeSeconds(),
             segment.getSlopeCurvature(),
             segment.getTrainId(),
+            segment.getRouteId(),
             segment.getMaxSpeedKmh(),
             segment.getStationName(),
             segment.getStationId()
@@ -280,6 +333,21 @@ public class TrainModNetworking {
 
         for (ServerPlayerEntity p : world.getPlayers()) {
             ServerPlayNetworking.send(p, payload);
+        }
+    }
+
+    public static void broadcastRoutesSync(ServerWorld world) {
+        List<Route> routes = RouteManager.getAllRoutes();
+
+        if (!routes.isEmpty()) {
+            Map<String, NbtCompound> routeDataMap = new HashMap<>();
+            for (Route route : routes) {
+                routeDataMap.put(route.getRouteId(), route.toNbt());
+            }
+
+            for (var player : world.getServer().getPlayerManager().getPlayerList()) {
+                ServerPlayNetworking.send(player, new SyncRoutesPayload(routeDataMap));
+            }
         }
     }
 }

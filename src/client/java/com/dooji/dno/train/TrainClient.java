@@ -258,6 +258,47 @@ public class TrainClient {
         return tracks.get(trackKey);
     }
 
+    private TrackSegment getCurrentTrackSegment(World world) {
+        if (continuousPathPoints == null || continuousPathPoints.isEmpty() || path == null || path.isEmpty()) {
+            return null;
+        }
+
+        int currentIndex = getCurrentPathIndex();
+        if (currentIndex < 0 || currentIndex >= path.size()) {
+            return null;
+        }
+
+        String currentTrackKey = path.get(currentIndex);
+        return findTrackSegmentByKey(currentTrackKey, world);
+    }
+
+    private int getCurrentPathIndex() {
+        if (continuousPathPoints == null || continuousPathPoints.isEmpty() || path == null || path.isEmpty()) {
+            return -1;
+        }
+
+        if (currentPathDistance <= 0) {
+            return 0;
+        }
+
+        if (currentPathDistance >= totalPathLength) {
+            return path.size() - 1;
+        }
+
+        double progressRatio = currentPathDistance / totalPathLength;
+        int pathIndex = (int) (progressRatio * path.size());
+        return Math.min(Math.max(pathIndex, 0), path.size() - 1);
+    }
+
+    private double getCurrentTrackSpeedLimit(World world) {
+        TrackSegment currentSegment = getCurrentTrackSegment(world);
+        if (currentSegment != null) {
+            return currentSegment.getMaxSpeedKmh() / 3.6;
+        }
+
+        return maxSpeed;
+    }
+
     private double getDistanceAlongPathTo(BlockPos pos) {
         int idx = getNearestPathIndexTo(pos);
         return getCumulativeDistanceAtIndex(idx);
@@ -529,10 +570,11 @@ public class TrainClient {
                 break;
 
             case ACCELERATING:
+                double currentSpeedLimit = getCurrentTrackSpeedLimit(world);
                 double acceleration = accelerationConstant * ticksElapsed;
-                speed = Math.min(speed + acceleration, maxSpeed);
+                speed = Math.min(speed + acceleration, currentSpeedLimit);
 
-                if (speed >= maxSpeed) {
+                if (speed >= currentSpeedLimit) {
                     movementState = Train.MovementState.CRUISING;
                 }
 
@@ -545,6 +587,12 @@ public class TrainClient {
                 break;
 
             case CRUISING:
+                currentSpeedLimit = getCurrentTrackSpeedLimit(world);
+                if (speed > currentSpeedLimit) {
+                    double deceleration = accelerationConstant * ticksElapsed;
+                    speed = Math.max(speed - deceleration, currentSpeedLimit);
+                }
+
                 if (isApproachingPlatform(world)) {
                     movementState = Train.MovementState.APPROACHING_PLATFORM;
                 } else if (currentPathDistance >= totalPathLength && !hasMorePlatformsToVisit(world)) {
@@ -624,8 +672,9 @@ public class TrainClient {
                 break;
 
             case RETURNING_TO_DEPOT:
+                currentSpeedLimit = getCurrentTrackSpeedLimit(world);
                 double returnAcceleration = accelerationConstant * ticksElapsed;
-                speed = Math.min(speed + returnAcceleration, maxSpeed);
+                speed = Math.min(speed + returnAcceleration, currentSpeedLimit);
                 currentPathDistance -= speed * ticksElapsed;
                 setCurrentPathDistance(currentPathDistance);
 

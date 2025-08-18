@@ -7,7 +7,7 @@ import net.minecraft.network.packet.CustomPayload;
 import net.minecraft.util.Identifier;
 import net.minecraft.util.math.BlockPos;
 
-public record UpdateTrackSegmentPayload(BlockPos start, BlockPos end, String modelId, String type, int dwellTimeSeconds, double slopeCurvature, String trainId) implements CustomPayload {
+public record UpdateTrackSegmentPayload(BlockPos start, BlockPos end, String modelId, String type, int dwellTimeSeconds, double slopeCurvature, String trainId, int maxSpeedKmh, String stationName, String stationId) implements CustomPayload {
     public static final CustomPayload.Id<UpdateTrackSegmentPayload> ID = new CustomPayload.Id<>(Identifier.of(TrainMod.MOD_ID, "update_track_segment"));
 
     public static final PacketCodec<PacketByteBuf, UpdateTrackSegmentPayload> CODEC = PacketCodec.ofStatic(
@@ -20,9 +20,14 @@ public record UpdateTrackSegmentPayload(BlockPos start, BlockPos end, String mod
             buf.writeDouble(payload.slopeCurvature());
             boolean hasTrainId = payload.trainId() != null;
             buf.writeBoolean(hasTrainId);
+            
             if (hasTrainId) {
                 buf.writeString(payload.trainId());
             }
+            
+            buf.writeInt(payload.maxSpeedKmh());
+            buf.writeString(payload.stationName());
+            buf.writeString(payload.stationId());
         },
         buf -> {
             BlockPos start = buf.readBlockPos();
@@ -33,10 +38,15 @@ public record UpdateTrackSegmentPayload(BlockPos start, BlockPos end, String mod
             double slopeCurvature = buf.readDouble();
             String trainId = null;
             boolean hasTrainId = buf.readBoolean();
+
             if (hasTrainId) {
                 trainId = buf.readString();
             }
-            return new UpdateTrackSegmentPayload(start, end, modelId, type, dwellTimeSeconds, slopeCurvature, trainId);
+
+            int maxSpeedKmh = buf.readInt();
+            String stationName = buf.readString();
+            String stationId = buf.readString();
+            return new UpdateTrackSegmentPayload(start, end, modelId, type, dwellTimeSeconds, slopeCurvature, trainId, maxSpeedKmh, stationName, stationId);
         }
     );
 

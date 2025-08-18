@@ -242,7 +242,7 @@ public class TrackManager {
         dimensionKeyToNodes.put(dimensionKey, new ConcurrentHashMap<>(nodes));
     }
 
-    public static void updateTrackSegment(World world, BlockPos start, BlockPos end, String modelId, String type, int dwellTimeSeconds, double slopeCurvature) {
+    public static void updateTrackSegment(World world, BlockPos start, BlockPos end, String modelId, String type, int dwellTimeSeconds, double slopeCurvature, int maxSpeedKmh, String stationName, String stationId) {
         if (world == null || start == null || end == null) {
             return;
         }
@@ -277,6 +277,24 @@ public class TrackManager {
 
             updatedSegment.setDwellTimeSeconds(dwellTimeSeconds);
             updatedSegment.setSlopeCurvature(slopeCurvature);
+            updatedSegment.setMaxSpeedKmh(maxSpeedKmh);
+            
+            if ("platform".equals(type)) {
+                if (stationName == null || stationName.trim().isEmpty()) {
+                    stationName = "Station";
+                }
+                if (stationId == null || stationId.trim().isEmpty()) {
+                    if (existingSegment.getStationId() == null || existingSegment.getStationId().trim().isEmpty()) {
+                        String newStationId = generateUniqueStationId(world);
+                        updatedSegment.setStationId(newStationId);
+                    } else {
+                        updatedSegment.setStationId(existingSegment.getStationId());
+                    }
+                } else {
+                    updatedSegment.setStationId(stationId);
+                }
+            }
+            updatedSegment.setStationName(stationName);
 
             worldTracks.put(trackKey, updatedSegment);
 
@@ -481,5 +499,10 @@ public class TrackManager {
 
     private static String buildTrackKey(BlockPos start, BlockPos end) {
         return start.getX() + "," + start.getY() + "," + start.getZ() + "->" + end.getX() + "," + end.getY() + "," + end.getZ();
+    }
+
+    private static String generateUniqueStationId(World world) {
+        int random = (int) (Math.random() * 1000000);
+        return "station_" + random;
     }
 }

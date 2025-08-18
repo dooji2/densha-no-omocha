@@ -132,7 +132,7 @@ public class TrackManagerClient {
         }
     }
 
-    public static void syncUpdate(BlockPos start, BlockPos end, String modelId, String type, int dwellTimeSeconds, double slopeCurvature, String trainId) {
+    public static void syncUpdate(BlockPos start, BlockPos end, String modelId, String type, int dwellTimeSeconds, double slopeCurvature, String trainId, int maxSpeedKmh, String stationName, String stationId) {
         World world = MinecraftClient.getInstance().world;
         if (world == null) return;
 
@@ -159,6 +159,9 @@ public class TrackManagerClient {
 
                 updatedSegment.setDwellTimeSeconds(dwellTimeSeconds);
                 updatedSegment.setSlopeCurvature(slopeCurvature);
+                updatedSegment.setMaxSpeedKmh(maxSpeedKmh);
+                updatedSegment.setStationName(stationName);
+                updatedSegment.setStationId(stationId);
                 if (trainId != null) {
                     updatedSegment.setTrainId(trainId);
                 }

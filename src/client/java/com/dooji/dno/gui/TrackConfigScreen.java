@@ -47,6 +47,8 @@ public class TrackConfigScreen extends Screen {
     private ButtonWidget refreshPathButton;
     private TextFieldWidget dwellTimeField;
     private TextFieldWidget slopeCurvatureField;
+    private TextFieldWidget maxSpeedField;
+    private TextFieldWidget stationNameField;
     private int hoveredButtonIndex = -1;
 
     private String selectedTrackId;
@@ -179,13 +181,22 @@ public class TrackConfigScreen extends Screen {
         }).dimensions(contentX, typeButtonY, Math.min(BUTTON_WIDTH, contentWidth), 20).build();
         this.addDrawableChild(this.segmentTypeButton);
 
-        int dwellY = typeButtonY + 25;
-        this.dwellTimeField = new TextFieldWidget(this.textRenderer, contentX, dwellY, 100, 20, Text.translatable("gui.dno.track_config.dwell_time"));
+        int fieldWidth = 100;
+        int fieldHeight = 20;
+        
+        this.maxSpeedField = new TextFieldWidget(this.textRenderer, 0, 0, fieldWidth, fieldHeight, Text.translatable("gui.dno.track_config.max_speed"));
+        this.maxSpeedField.setText(String.valueOf(segment.getMaxSpeedKmh()));
+        this.addDrawableChild(this.maxSpeedField);
+        
+        this.stationNameField = new TextFieldWidget(this.textRenderer, 0, 0, fieldWidth, fieldHeight, Text.translatable("gui.dno.track_config.station_name"));
+        this.stationNameField.setText(segment.getStationName());
+        this.addDrawableChild(this.stationNameField);
+        
+        this.dwellTimeField = new TextFieldWidget(this.textRenderer, 0, 0, fieldWidth, fieldHeight, Text.translatable("gui.dno.track_config.dwell_time"));
         this.dwellTimeField.setText(String.valueOf(dwellTimeSeconds));
         this.addDrawableChild(this.dwellTimeField);
 
-        int curvatureY = dwellY + 25;
-        this.slopeCurvatureField = new TextFieldWidget(this.textRenderer, contentX, curvatureY, 100, 20, Text.translatable("gui.dno.track_config.curvature"));
+        this.slopeCurvatureField = new TextFieldWidget(this.textRenderer, 0, 0, fieldWidth, fieldHeight, Text.translatable("gui.dno.track_config.curvature"));
         this.slopeCurvatureField.setText(String.valueOf(segment.getSlopeCurvature()));
         this.addDrawableChild(this.slopeCurvatureField);
 
@@ -204,6 +215,14 @@ public class TrackConfigScreen extends Screen {
 
         updateFilters();
         updateTrainConfigTabVisibility();
+    }
+
+    @Override
+    public void resize(MinecraftClient client, int width, int height) {
+        super.resize(client, width, height);
+        if (!isTrainConfigTab) {
+            updateTextFieldPositions();
+        }
     }
 
     private void loadAvailableOptions() {
@@ -261,9 +280,15 @@ public class TrackConfigScreen extends Screen {
 
         boolean trackView = !isTrainConfigTab;
         this.segmentTypeButton.visible = trackView;
+        this.maxSpeedField.visible = trackView;
+        this.stationNameField.visible = isPlatform && trackView;
         this.dwellTimeField.visible = isPlatform && trackView;
         boolean isSlope = segment.start().getY() != segment.end().getY();
         this.slopeCurvatureField.visible = isSlope && trackView;
+        
+        if (trackView) {
+            updateTextFieldPositions();
+        }
 
         if (!isSiding && isTrainConfigTab) {
             isTrainConfigTab = false;
@@ -291,6 +316,42 @@ public class TrackConfigScreen extends Screen {
         }
 
         updateFilters();
+    }
+    
+    private void updateTextFieldPositions() {
+        int centerX = this.width / 2;
+        int centerY = this.height / 2;
+        int guiX = centerX - GUI_WIDTH / 2;
+        int guiY = centerY - GUI_HEIGHT / 2;
+        int contentX = guiX + SIDEBAR_WIDTH + CONTENT_PADDING * 2;
+        int typeButtonY = guiY + CONTENT_PADDING + 60;
+        int fieldsY = typeButtonY + 25;
+        
+        int fieldWidth = 100;
+        int fieldHeight = 20;
+        int fieldSpacing = 10;
+        
+        List<TextFieldWidget> visibleFields = new ArrayList<>();
+        if (this.maxSpeedField.visible) visibleFields.add(this.maxSpeedField);
+        if (this.stationNameField.visible) visibleFields.add(this.stationNameField);
+        if (this.dwellTimeField.visible) visibleFields.add(this.dwellTimeField);
+        if (this.slopeCurvatureField.visible) visibleFields.add(this.slopeCurvatureField);
+        
+        int fieldsPerRow = 2;
+        int currentRow = 0;
+        int currentCol = 0;
+        
+        for (TextFieldWidget field : visibleFields) {
+            int x = contentX + (currentCol * (fieldWidth + fieldSpacing));
+            int y = fieldsY + (currentRow * (fieldHeight + fieldSpacing));
+            field.setPosition(x, y);
+            
+            currentCol++;
+            if (currentCol >= fieldsPerRow) {
+                currentCol = 0;
+                currentRow++;
+            }
+        }
     }
 
     private void updateFilters() {
@@ -376,21 +437,38 @@ public class TrackConfigScreen extends Screen {
                 this.segmentTypeButton.visible = true;
             }
 
-            int nextY = typeButtonY - BUTTON_SPACING;
+            int fieldsY = typeButtonY - 25;
+            int fieldWidth = 100;
+            int fieldHeight = 20;
+            int fieldSpacing = 10;
+            
+            if (this.maxSpeedField != null) {
+                this.maxSpeedField.setX(contentX);
+                this.maxSpeedField.setY(fieldsY);
+                this.maxSpeedField.visible = true;
+            }
+            
+            if (this.stationNameField != null) {
+                this.stationNameField.setX(contentX + fieldWidth + fieldSpacing);
+                this.stationNameField.setY(fieldsY);
+                this.stationNameField.visible = isPlatform;
+            }
+            
+            int secondRowY = fieldsY - fieldHeight - fieldSpacing;
+            
             if (isPlatform && this.dwellTimeField != null) {
-                int dwellY = nextY - 20;
                 this.dwellTimeField.setX(contentX);
-                this.dwellTimeField.setY(dwellY);
-                nextY = dwellY - (12 + BUTTON_SPACING);
+                this.dwellTimeField.setY(secondRowY);
+                this.dwellTimeField.visible = true;
             }
 
             if (isSlope && this.slopeCurvatureField != null) {
-                int curvatureY = nextY - 20;
-                this.slopeCurvatureField.setX(contentX);
-                this.slopeCurvatureField.setY(curvatureY);
-                nextY = curvatureY - (12 + BUTTON_SPACING);
+                this.slopeCurvatureField.setX(contentX + fieldWidth + fieldSpacing);
+                this.slopeCurvatureField.setY(secondRowY);
+                this.slopeCurvatureField.visible = true;
             }
 
+            int nextY = secondRowY - (12 + BUTTON_SPACING);
             listHeight = Math.max(40, nextY - listY);
         } else {
             int contentHeight = GUI_HEIGHT - FOOTER_HEIGHT - CONTENT_PADDING * 2;
@@ -426,16 +504,6 @@ public class TrackConfigScreen extends Screen {
 
         if (!isTrainConfigTab) {
             renderTrackConfigInfo(context, contentX + contentWidth / 2, guiY);
-            if ("platform".equals(selectedType)) {
-                int labelY = this.dwellTimeField.getY() - 12;
-                context.drawTextWithShadow(this.textRenderer, Text.translatable("gui.dno.track_config.dwell_time_label"), this.dwellTimeField.getX(), labelY, 0xCCCCCC);
-            }
-
-            boolean isSlope = segment.start().getY() != segment.end().getY();
-            if (isSlope) {
-                int labelY2 = this.slopeCurvatureField.getY() - 12;
-                context.drawTextWithShadow(this.textRenderer, Text.translatable("gui.dno.track_config.curvature_label"), this.slopeCurvatureField.getX(), labelY2, 0xCCCCCC);
-            }
         }
 
         if (this.trainModeListButton != null) {
@@ -1131,6 +1199,16 @@ public class TrackConfigScreen extends Screen {
             curvature = segment.getSlopeCurvature();
         }
 
+        int maxSpeed;
+        try {
+            maxSpeed = Integer.parseInt(maxSpeedField.getText());
+        } catch (NumberFormatException e) {
+            TrainModClient.LOGGER.warn("Invalid max speed input, using default: {}", maxSpeedField.getText(), e);
+            maxSpeed = segment.getMaxSpeedKmh();
+        }
+
+        String stationName = stationNameField.getText();
+
         UpdateTrackSegmentPayload trackPayload = new UpdateTrackSegmentPayload(
             segment.start(),
             segment.end(),
@@ -1138,7 +1216,10 @@ public class TrackConfigScreen extends Screen {
             selectedType,
             dwellTimeSeconds,
             curvature,
-            null
+            null,
+            maxSpeed,
+            stationName,
+            segment.getStationId()
         );
 
         TrainModClientNetworking.sendToServer(trackPayload);

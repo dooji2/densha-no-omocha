@@ -15,6 +15,9 @@ public class TrackSegment {
     private String trainId;
     private int dwellTimeSeconds;
     private double slopeCurvature;
+    private int maxSpeedKmh;
+    private String stationName;
+    private String stationId;
 
     public TrackSegment(BlockPos start, BlockPos end, Direction startDirection, Direction endDirection) {
         this(start, end, startDirection, endDirection, TrainMod.MOD_ID + ":default", "normal");
@@ -30,6 +33,9 @@ public class TrackSegment {
         this.trainId = null;
         this.dwellTimeSeconds = 15;
         this.slopeCurvature = 0.0;
+        this.maxSpeedKmh = 80;
+        this.stationName = "";
+        this.stationId = "";
     }
 
     public BlockPos start() {
@@ -88,6 +94,30 @@ public class TrackSegment {
         this.slopeCurvature = slopeCurvature;
     }
 
+    public int getMaxSpeedKmh() {
+        return maxSpeedKmh;
+    }
+
+    public void setMaxSpeedKmh(int maxSpeedKmh) {
+        this.maxSpeedKmh = maxSpeedKmh;
+    }
+
+    public String getStationName() {
+        return stationName;
+    }
+
+    public void setStationName(String stationName) {
+        this.stationName = stationName;
+    }
+
+    public String getStationId() {
+        return stationId;
+    }
+
+    public void setStationId(String stationId) {
+        this.stationId = stationId;
+    }
+
     public boolean contains(BlockPos pos) {
         return pos.equals(start()) || pos.equals(end());
     }
@@ -117,6 +147,9 @@ public class TrackSegment {
 
         nbt.putInt("dwellTimeSeconds", dwellTimeSeconds);
         nbt.putDouble("slopeCurvature", slopeCurvature);
+        nbt.putInt("maxSpeedKmh", maxSpeedKmh);
+        nbt.putString("stationName", stationName);
+        nbt.putString("stationId", stationId);
         return nbt;
     }
 
@@ -156,6 +189,18 @@ public class TrackSegment {
 
         if (nbt.contains("slopeCurvature")) {
             segment.setSlopeCurvature(nbt.getDouble("slopeCurvature").orElse(0.0));
+        }
+
+        if (nbt.contains("maxSpeedKmh")) {
+            segment.setMaxSpeedKmh(nbt.getInt("maxSpeedKmh").orElse(80));
+        }
+
+        if (nbt.contains("stationName")) {
+            segment.setStationName(nbt.getString("stationName").orElse(""));
+        }
+
+        if (nbt.contains("stationId")) {
+            segment.setStationId(nbt.getString("stationId").orElse(""));
         }
 
         return segment;

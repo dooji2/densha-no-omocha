@@ -99,7 +99,7 @@ public class TrainModNetworking {
                 return;
             }
 
-            TrackManager.updateTrackSegment(world, start, end, payload.modelId(), payload.type(), payload.dwellTimeSeconds(), payload.slopeCurvature());
+            TrackManager.updateTrackSegment(world, start, end, payload.modelId(), payload.type(), payload.dwellTimeSeconds(), payload.slopeCurvature(), payload.maxSpeedKmh(), payload.stationName(), payload.stationId());
         });
 
         ServerPlayNetworking.registerGlobalReceiver(UpdateTrainConfigPayload.ID, (payload, context) -> {
@@ -272,7 +272,10 @@ public class TrainModNetworking {
             segment.getType(),
             segment.getDwellTimeSeconds(),
             segment.getSlopeCurvature(),
-            segment.getTrainId()
+            segment.getTrainId(),
+            segment.getMaxSpeedKmh(),
+            segment.getStationName(),
+            segment.getStationId()
         );
 
         for (ServerPlayerEntity p : world.getPlayers()) {

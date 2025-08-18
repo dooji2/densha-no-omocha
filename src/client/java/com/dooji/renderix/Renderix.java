@@ -79,12 +79,14 @@ public class Renderix {
         final int vertexBufferId;
         final int indexBufferId;
         final int instanceBufferId;
+        final int vaoId;
         final Map<String, MeshData> meshes;
 
-        InstancedModelData(int vertexBufferId, int indexBufferId, int instanceBufferId, Map<String, MeshData> meshes) {
+        InstancedModelData(int vertexBufferId, int indexBufferId, int instanceBufferId, int vaoId, Map<String, MeshData> meshes) {
             this.vertexBufferId = vertexBufferId;
             this.indexBufferId = indexBufferId;
             this.instanceBufferId = instanceBufferId;
+            this.vaoId = vaoId;
             this.meshes = meshes;
         }
 
@@ -99,6 +101,10 @@ public class Renderix {
 
             if (instanceBufferId != 0) {
                 GL15.glDeleteBuffers(instanceBufferId);
+            }
+            
+            if (vaoId != 0) {
+                GL30.glDeleteVertexArrays(vaoId);
             }
         }
     }
@@ -227,6 +233,7 @@ public class Renderix {
             int vertexBufferId = GL15.glGenBuffers();
             int indexBufferId = GL15.glGenBuffers();
             int instanceBufferId = GL15.glGenBuffers();
+            int vaoId = GL30.glGenVertexArrays();
 
             GL15.glBindBuffer(GL15.GL_ARRAY_BUFFER, vertexBufferId);
             ByteBuffer vertexData = ByteBuffer.allocateDirect(allVertices.size() * 4 + allNormals.size() * 4 + allTexCoords.size() * 4);
@@ -260,7 +267,20 @@ public class Renderix {
             GL15.glBindBuffer(GL15.GL_ARRAY_BUFFER, 0);
             GL15.glBindBuffer(GL15.GL_ELEMENT_ARRAY_BUFFER, 0);
 
-            instancedModels.put(model, new InstancedModelData(vertexBufferId, indexBufferId, instanceBufferId, meshes));
+            GL30.glBindVertexArray(vaoId);
+            GL15.glBindBuffer(GL15.GL_ARRAY_BUFFER, vertexBufferId);
+            GL15.glBindBuffer(GL15.GL_ELEMENT_ARRAY_BUFFER, indexBufferId);
+            
+            GL20.glEnableVertexAttribArray(0);
+            GL20.glVertexAttribPointer(0, 3, GL11.GL_FLOAT, false, 32, 0);
+            GL20.glEnableVertexAttribArray(1);
+            GL20.glVertexAttribPointer(1, 3, GL11.GL_FLOAT, false, 32, 12);
+            GL20.glEnableVertexAttribArray(2);
+            GL20.glVertexAttribPointer(2, 2, GL11.GL_FLOAT, false, 32, 24);
+            
+            GL30.glBindVertexArray(0);
+
+            instancedModels.put(model, new InstancedModelData(vertexBufferId, indexBufferId, instanceBufferId, vaoId, meshes));
         } catch (Exception e) {
             LOGGER.error("Failed to prepare instanced rendering for model: {}", e.getMessage());
         }
@@ -317,17 +337,7 @@ public class Renderix {
             return;
         }
 
-        GL30.glBindVertexArray(GL30.glGenVertexArrays());
-
-        GL15.glBindBuffer(GL15.GL_ARRAY_BUFFER, instancedData.vertexBufferId);
-        GL15.glBindBuffer(GL15.GL_ELEMENT_ARRAY_BUFFER, instancedData.indexBufferId);
-
-        GL20.glEnableVertexAttribArray(0);
-        GL20.glVertexAttribPointer(0, 3, GL11.GL_FLOAT, false, 32, 0);
-        GL20.glEnableVertexAttribArray(1);
-        GL20.glVertexAttribPointer(1, 3, GL11.GL_FLOAT, false, 32, 12);
-        GL20.glEnableVertexAttribArray(2);
-        GL20.glVertexAttribPointer(2, 2, GL11.GL_FLOAT, false, 32, 24);
+        GL30.glBindVertexArray(instancedData.vaoId);
 
         ByteBuffer instanceData = ByteBuffer.allocateDirect(instances.size() * 80);
         instanceData.order(ByteOrder.nativeOrder());

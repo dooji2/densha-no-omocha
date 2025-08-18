@@ -14,6 +14,7 @@ import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.network.ClientPlayerEntity;
 import net.minecraft.util.math.Box;
 import net.minecraft.util.math.Vec3d;
+import net.minecraft.util.math.MathHelper;
 import net.minecraft.world.World;
 
 import java.util.HashMap;
@@ -126,8 +127,18 @@ public class TrainBoardingManager {
                     continue;
                 }
 
-                double frontOffset = currentOffset;
-                double rearOffset = currentOffset + carriageLength;
+                // I should be using data from the server to get the bogie insets, but when I do that the bounding box is rotated wrong :<
+                String carriageId = carriageIds.get(i);
+                TrainConfigLoader.TrainTypeData trainData = TrainConfigLoader.getTrainType(carriageId);
+                double insetDist = 0.0;
+                
+                if (trainData != null) {
+                    double inset = trainData.bogieInset();
+                    insetDist = MathHelper.clamp(inset, 0.0, 0.49) * carriageLength;
+                }
+
+                double frontOffset = currentOffset + insetDist;
+                double rearOffset = currentOffset + carriageLength - insetDist;
 
                 Vec3d frontPos = train.getPositionAlongContinuousPath(trainPathDistance - frontOffset);
                 Vec3d rearPos = train.getPositionAlongContinuousPath(trainPathDistance - rearOffset);

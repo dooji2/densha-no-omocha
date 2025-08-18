@@ -2,10 +2,13 @@ package com.dooji.dno.gui;
 
 import com.dooji.dno.TrainModClient;
 import com.dooji.dno.network.TrainModClientNetworking;
+import com.dooji.dno.network.payloads.SyncRoutesPayload;
 import com.dooji.dno.network.payloads.UpdateTrackSegmentPayload;
 import com.dooji.dno.network.payloads.UpdateTrainConfigPayload;
 import com.dooji.dno.track.TrackRenderer;
 import com.dooji.dno.track.TrackSegment;
+import com.dooji.dno.track.RouteManagerClient;
+import com.dooji.dno.track.TrackManagerClient;
 import com.dooji.dno.train.TrainClient;
 import com.dooji.dno.train.TrainConfigLoader;
 import com.dooji.dno.train.TrainManagerClient;
@@ -22,9 +25,15 @@ import net.minecraft.util.Identifier;
 
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import com.dooji.dno.track.Route;
 
+/**
+ * This class should not be this big. It's a mess. It will be refactored in the future, but for now it'll have to do because
+ * I'm not willing to spend more time on it than I already have, but maybe after the event or after the testing phase.
+ */
 public class TrackConfigScreen extends Screen {
     private static final int GUI_WIDTH = 360;
     private static final int GUI_HEIGHT = 250;
@@ -42,18 +51,25 @@ public class TrackConfigScreen extends Screen {
 
     private ButtonWidget sidebarTrackButton;
     private ButtonWidget sidebarTrainButton;
+    private ButtonWidget sidebarRouteButton;
     private ButtonWidget trainModeListButton;
     private ButtonWidget trainModeConfigButton;
+    private ButtonWidget routeModeListButton;
+    private ButtonWidget routeModeConfigButton;
     private ButtonWidget refreshPathButton;
     private TextFieldWidget dwellTimeField;
     private TextFieldWidget slopeCurvatureField;
     private TextFieldWidget maxSpeedField;
     private TextFieldWidget stationNameField;
+    private TextFieldWidget routeNameField;
     private int hoveredButtonIndex = -1;
 
     private String selectedTrackId;
     private String selectedType;
     private boolean isTrainConfigTab = false;
+    private boolean isRouteTab = false;
+    private boolean wasRouteTabJustActivated = false;
+    private boolean isRouteConfigurationView = false;
     private boolean isTrainConfigurationView = false;
     private int dwellTimeSeconds;
 
@@ -61,6 +77,10 @@ public class TrackConfigScreen extends Screen {
     private List<String> availableTrainIds;
     private List<String> availableTypes;
     private List<String> currentCarriages;
+    private List<String> availableStationIds;
+    private List<String> availableRoutes;
+    private String selectedRouteId;
+    private List<String> currentRouteStations;
     private int selectedTrackIdIndex = 0;
     private int selectedTypeIndex = 0;
 
@@ -85,9 +105,16 @@ public class TrackConfigScreen extends Screen {
     private int lastListWidth;
     private int lastListHeight;
 
+    private ButtonWidget createRouteButton;
+    private ButtonWidget backToRouteListButton;
+
     private static final Identifier BUTTON_NORMAL = Identifier.ofVanilla("widget/button");
     private static final Identifier BUTTON_HIGHLIGHTED = Identifier.ofVanilla("widget/button_highlighted");
     private static final Identifier BUTTON_DISABLED = Identifier.ofVanilla("widget/button_disabled");
+
+    private boolean routeCreationShowSelected = false;
+    private ButtonWidget routeCreateTabAvailableButton;
+    private ButtonWidget routeCreateTabSelectedButton;
 
     private int getGuiY() {
         return this.height / 2 - GUI_HEIGHT / 2;
@@ -136,12 +163,27 @@ public class TrackConfigScreen extends Screen {
 
         this.sidebarTrainButton = ButtonWidget.builder(Text.translatable("gui.dno.track_config.tab.train"), button -> {
             isTrainConfigTab = true;
+            isRouteTab = false;
             isTrainConfigurationView = false;
             scrollOffset = 0;
             loadCurrentTrainConfig();
             updateTrainConfigTabVisibility();
         }).dimensions(sidebarX, sidebarY + sidebarButtonHeight + BUTTON_SPACING, sidebarButtonWidth, sidebarButtonHeight).build();
         this.addDrawableChild(this.sidebarTrainButton);
+
+        this.sidebarRouteButton = ButtonWidget.builder(Text.translatable("gui.dno.track_config.tab.route"), button -> {
+            isTrainConfigTab = false;
+            isRouteTab = true;
+            isTrainConfigurationView = false;
+            scrollOffset = 0;
+            wasRouteTabJustActivated = true;
+
+            requestRouteSync();
+            loadRouteData();
+            refreshRouteList();
+            updateTrainConfigTabVisibility();
+        }).dimensions(sidebarX, sidebarY + (sidebarButtonHeight + BUTTON_SPACING) * 2, sidebarButtonWidth, sidebarButtonHeight).build();
+        this.addDrawableChild(this.sidebarRouteButton);
 
         int contentX = guiX + SIDEBAR_WIDTH + CONTENT_PADDING * 2;
         int contentY = guiY + CONTENT_PADDING;
@@ -163,6 +205,23 @@ public class TrackConfigScreen extends Screen {
             updateTrainConfigTabVisibility();
         }).dimensions(contentX + 55, contentY, 90, 20).build();
         this.addDrawableChild(this.trainModeConfigButton);
+
+        this.routeModeListButton = ButtonWidget.builder(Text.translatable("gui.dno.train_config.mode.list"), button -> {
+            isRouteConfigurationView = false;
+            scrollOffset = 0;
+            updateTrainConfigTabVisibility();
+        }).dimensions(contentX, contentY, 50, 20).build();
+        this.addDrawableChild(this.routeModeListButton);
+
+        this.routeModeConfigButton = ButtonWidget.builder(Text.literal("+"), button -> {
+            isRouteConfigurationView = true;
+            scrollOffset = 0;
+            if (this.currentRouteStations == null || this.currentRouteStations.isEmpty()) {
+                this.currentRouteStations = new ArrayList<>();
+            }
+            updateTrainConfigTabVisibility();
+        }).dimensions(contentX + 55, contentY, 20, 20).build();
+        this.addDrawableChild(this.routeModeConfigButton);
 
         this.trackSearchField = new TextFieldWidget(this.textRenderer, contentX, contentY, Math.min(BUTTON_WIDTH, contentWidth), SEARCH_HEIGHT, Text.translatable("gui.dno.common.search"));
         this.trackSearchField.setChangedListener(text -> updateFilters());
@@ -200,12 +259,39 @@ public class TrackConfigScreen extends Screen {
         this.slopeCurvatureField.setText(String.valueOf(segment.getSlopeCurvature()));
         this.addDrawableChild(this.slopeCurvatureField);
 
+        this.routeNameField = new TextFieldWidget(this.textRenderer, contentX, contentY + GUI_HEIGHT - FOOTER_HEIGHT - 55, fieldWidth, fieldHeight, Text.translatable("gui.dno.create_route.name"));
+        this.routeNameField.setText("Route");
+        this.addDrawableChild(this.routeNameField);
+
         int footerY = guiY + GUI_HEIGHT - FOOTER_HEIGHT + (FOOTER_HEIGHT - 20) / 2;
         ButtonWidget saveButton = ButtonWidget.builder(Text.translatable("gui.dno.common.save"), button -> saveAndClose()).dimensions(contentX, footerY, 80, 20).build();
         this.addDrawableChild(saveButton);
 
         ButtonWidget cancelButton = ButtonWidget.builder(Text.translatable("gui.dno.common.cancel"), button -> closeWithoutSaving()).dimensions(contentX + 85, footerY, 80, 20).build();
         this.addDrawableChild(cancelButton);
+
+        this.createRouteButton = ButtonWidget.builder(Text.translatable("gui.dno.create_route.create"), button -> {
+            createNewRoute();
+        }).dimensions(contentX, contentY + GUI_HEIGHT - FOOTER_HEIGHT - 30, 80, 20).build();
+        this.addDrawableChild(this.createRouteButton);
+
+        this.backToRouteListButton = ButtonWidget.builder(Text.translatable("gui.dno.common.back"), button -> {
+            isRouteConfigurationView = false;
+            updateTrainConfigTabVisibility();
+        }).dimensions(contentX + 85, contentY + GUI_HEIGHT - FOOTER_HEIGHT - 30, 80, 20).build();
+        this.addDrawableChild(this.backToRouteListButton);
+
+        this.routeCreateTabAvailableButton = ButtonWidget.builder(Text.translatable("gui.dno.create_route.available_stations"), button -> {
+            routeCreationShowSelected = false;
+            updateTrainConfigTabVisibility();
+        }).dimensions(contentX, contentY, 100, 20).build();
+        this.addDrawableChild(this.routeCreateTabAvailableButton);
+
+        this.routeCreateTabSelectedButton = ButtonWidget.builder(Text.translatable("gui.dno.create_route.selected_stations"), button -> {
+            routeCreationShowSelected = true;
+            updateTrainConfigTabVisibility();
+        }).dimensions(contentX + 105, contentY, 100, 20).build();
+        this.addDrawableChild(this.routeCreateTabSelectedButton);
 
         this.refreshPathButton = ButtonWidget.builder(Text.translatable("gui.dno.track_config.refresh_path"), button -> {
             var payload = new com.dooji.dno.network.payloads.RefreshTrainPathPayload(trainId, segment.start(), segment.end());
@@ -214,15 +300,54 @@ public class TrackConfigScreen extends Screen {
         this.addDrawableChild(this.refreshPathButton);
 
         updateFilters();
+        if (!isRouteTab) {
+            updateTextFieldPositions();
+        }
         updateTrainConfigTabVisibility();
     }
 
     @Override
     public void resize(MinecraftClient client, int width, int height) {
         super.resize(client, width, height);
-        if (!isTrainConfigTab) {
+        if (!isTrainConfigTab && !isRouteTab) {
             updateTextFieldPositions();
         }
+
+        if (isRouteTab && this.routeNameField != null && this.routeNameField.visible) {
+            int centerX = this.width / 2;
+            int guiX = centerX - GUI_WIDTH / 2;
+            int guiY = getGuiY();
+            int contentX = guiX + SIDEBAR_WIDTH + CONTENT_PADDING * 2;
+            int contentY = guiY + CONTENT_PADDING;
+            int contentWidth = GUI_WIDTH - SIDEBAR_WIDTH - CONTENT_PADDING * 3;
+            
+            this.routeNameField.setX(contentX);
+            this.routeNameField.setY(contentY + GUI_HEIGHT - FOOTER_HEIGHT - 55);
+            this.routeNameField.setWidth(contentWidth);
+        }
+    }
+
+    private int routeSyncTicks = 0;
+    private static final int ROUTE_SYNC_INTERVAL = 60;
+    
+    @Override
+    public void tick() {
+        super.tick();
+        
+        if (isRouteTab) {
+            routeSyncTicks++;
+            if (routeSyncTicks >= ROUTE_SYNC_INTERVAL) {
+                routeSyncTicks = 0;
+                requestRouteSync();
+            }
+        } else {
+            routeSyncTicks = 0;
+        }
+    }
+    
+    private void requestRouteSync() {
+        var payload = new SyncRoutesPayload(new HashMap<>());
+        TrainModClientNetworking.sendToServer(payload);
     }
 
     private void loadAvailableOptions() {
@@ -271,6 +396,39 @@ public class TrackConfigScreen extends Screen {
         }
     }
 
+    public void loadRouteData() {
+        String currentSelectedRoute = selectedRouteId;
+        int currentScrollOffset = scrollOffset;
+        
+        availableStationIds = new ArrayList<>();
+        availableRoutes = new ArrayList<>();
+        
+        Map<String, TrackSegment> tracks = TrackManagerClient.getTracksFor(MinecraftClient.getInstance().world);
+        for (TrackSegment segment : tracks.values()) {
+            if ("platform".equals(segment.getType()) && segment.getStationId() != null && !segment.getStationId().trim().isEmpty()) {
+                if (!availableStationIds.contains(segment.getStationId())) {
+                    availableStationIds.add(segment.getStationId());
+                }
+            }
+        }
+        
+        List<Route> routes = RouteManagerClient.getAllRoutes();
+        for (Route route : routes) {
+            availableRoutes.add(route.getRouteId());
+        }
+        
+        if (currentSelectedRoute != null && availableRoutes.contains(currentSelectedRoute)) {
+            selectedRouteId = currentSelectedRoute;
+        }
+        if (currentScrollOffset > 0) {
+            scrollOffset = currentScrollOffset;
+        }
+    }
+
+    public void refreshRouteList() {
+        loadRouteData();
+    }
+
     private void updateTrainConfigTabVisibility() {
         boolean isSiding = "siding".equals(selectedType);
         boolean isPlatform = "platform".equals(selectedType);
@@ -278,7 +436,12 @@ public class TrackConfigScreen extends Screen {
             this.sidebarTrainButton.active = isSiding;
         }
 
-        boolean trackView = !isTrainConfigTab;
+        if (this.sidebarRouteButton != null) {
+            this.sidebarRouteButton.active = isSiding;
+        }
+
+        boolean trackView = !isTrainConfigTab && !isRouteTab;
+        boolean routeView = isRouteTab;
         this.segmentTypeButton.visible = trackView;
         this.maxSpeedField.visible = trackView;
         this.stationNameField.visible = isPlatform && trackView;
@@ -294,6 +457,10 @@ public class TrackConfigScreen extends Screen {
             isTrainConfigTab = false;
         }
 
+        if (!isSiding && isRouteTab) {
+            isRouteTab = false;
+        }
+
         boolean trainView = isTrainConfigTab;
         if (this.trainModeListButton != null) {
             this.trainModeListButton.visible = trainView;
@@ -303,8 +470,48 @@ public class TrackConfigScreen extends Screen {
             this.trainModeConfigButton.visible = trainView;
         }
 
+        if (this.routeModeListButton != null) {
+            this.routeModeListButton.visible = routeView && !isRouteConfigurationView;
+        }
+
+        if (this.routeModeConfigButton != null) {
+            this.routeModeConfigButton.visible = routeView && !isRouteConfigurationView;
+        }
+
+        if (this.routeCreateTabAvailableButton != null) {
+            this.routeCreateTabAvailableButton.visible = routeView && isRouteConfigurationView;
+        }
+
+        if (this.routeCreateTabSelectedButton != null) {
+            this.routeCreateTabSelectedButton.visible = routeView && isRouteConfigurationView;
+        }
+
+        if (this.createRouteButton != null) {
+            this.createRouteButton.visible = routeView && isRouteConfigurationView;
+        }
+
+        if (this.backToRouteListButton != null) {
+            this.backToRouteListButton.visible = routeView && isRouteConfigurationView;
+        }
+
+        if (this.routeNameField != null) {
+            this.routeNameField.visible = routeView && isRouteConfigurationView;
+            if (this.routeNameField.visible) {
+                int centerX = this.width / 2;
+                int guiX = centerX - GUI_WIDTH / 2;
+                int guiY = getGuiY();
+                int contentX = guiX + SIDEBAR_WIDTH + CONTENT_PADDING * 2;
+                int contentY = guiY + CONTENT_PADDING;
+                int contentWidth = GUI_WIDTH - SIDEBAR_WIDTH - CONTENT_PADDING * 3;
+                
+                this.routeNameField.setX(contentX);
+                this.routeNameField.setY(contentY + GUI_HEIGHT - FOOTER_HEIGHT - 55);
+                this.routeNameField.setWidth(contentWidth);
+            }
+        }
+
         if (this.refreshPathButton != null) {
-            this.refreshPathButton.visible = trainView && isTrainConfigurationView;
+            this.refreshPathButton.visible = isTrainConfigTab && isTrainConfigurationView;
         }
 
         if (this.trackSearchField != null) {
@@ -419,12 +626,12 @@ public class TrackConfigScreen extends Screen {
                 listY = contentY + 24 + BUTTON_SPACING + 24 + BUTTON_SPACING;
             }
         } else {
-            listY = contentY + SEARCH_HEIGHT + BUTTON_SPACING;
+            listY = contentY + 24 + BUTTON_SPACING;
         }
 
         int listWidth = Math.min(BUTTON_WIDTH, contentWidth);
-        int listHeight;
-        if (!isTrainConfigTab) {
+        int listHeight = 40;
+        if (!isTrainConfigTab && !isRouteTab) {
             boolean isPlatform = "platform".equals(selectedType);
             boolean isSlope = segment.start().getY() != segment.end().getY();
             int bottomY = guiY + GUI_HEIGHT - FOOTER_HEIGHT - CONTENT_PADDING;
@@ -468,13 +675,38 @@ public class TrackConfigScreen extends Screen {
                 this.slopeCurvatureField.visible = true;
             }
 
-            int nextY = secondRowY - (12 + BUTTON_SPACING);
+            int nextY;
+            if (isPlatform || isSlope) {
+                nextY = secondRowY - (12 + BUTTON_SPACING);
+            } else {
+                nextY = fieldsY;
+            }
+
             listHeight = Math.max(40, nextY - listY);
-        } else {
+        } else if (isTrainConfigTab) {
             int contentHeight = GUI_HEIGHT - FOOTER_HEIGHT - CONTENT_PADDING * 2;
             listHeight = contentHeight - (listY - contentY) - BUTTON_SPACING;
 
             if (listHeight < 40) listHeight = 40;
+        } else if (isRouteTab) {
+            int contentHeight = GUI_HEIGHT - FOOTER_HEIGHT - CONTENT_PADDING * 2;
+            listHeight = contentHeight - (listY - contentY) - BUTTON_SPACING;
+
+            if (listHeight < 40) listHeight = 40;
+            
+            if (isRouteConfigurationView) {
+                int routeNameFieldY = contentY + GUI_HEIGHT - FOOTER_HEIGHT - 55;
+                int availableHeight = (routeNameFieldY - BUTTON_SPACING) - listY;
+                if (availableHeight > 0) {
+                    listHeight = Math.min(listHeight, availableHeight);
+                }
+            } else {
+                int bottomY = guiY + GUI_HEIGHT - FOOTER_HEIGHT - CONTENT_PADDING;
+                int availableHeight = bottomY - listY - BUTTON_SPACING;
+                if (availableHeight > 0) {
+                    listHeight = Math.min(listHeight, availableHeight);
+                }
+            }
         }
 
         this.lastListX = listX;
@@ -490,6 +722,17 @@ public class TrackConfigScreen extends Screen {
                 renderTrainConfigurationGrid(context, listX, listY, listWidth, listHeight, mouseX, mouseY, delta);
             } else {
             renderTrainConfigList(context, listX, listY, mouseX, mouseY, delta);
+            }
+        } else if (isRouteTab) {
+            if (wasRouteTabJustActivated) {
+                wasRouteTabJustActivated = false;
+                refreshRouteList();
+            }
+
+            if (isRouteConfigurationView) {
+                renderRouteCreationView(context, listX, listY, listWidth, listHeight, mouseX, mouseY, delta);
+            } else {
+                renderRouteList(context, listX, listY, listWidth, listHeight, mouseX, mouseY, delta);
             }
         } else {
             renderTrackConfigList(context, listX, listY, mouseX, mouseY, delta);
@@ -539,7 +782,7 @@ public class TrackConfigScreen extends Screen {
             int buttonHeight = isTitleOnly ? 25 : BUTTON_HEIGHT;
             int buttonY = currentY - scrollOffset;
 
-            if (buttonY + buttonHeight >= listY && buttonY <= listY + 10000) {
+            if (buttonY + buttonHeight >= listY && buttonY <= listY + lastListHeight) {
                 renderTrackTypeButton(context, i, listX, buttonY, buttonHeight);
             }
 
@@ -553,12 +796,178 @@ public class TrackConfigScreen extends Screen {
         for (int i = 0; i < items.size(); i++) {
             int buttonY = currentY - scrollOffset;
 
-            if (buttonY + BUTTON_HEIGHT >= listY && buttonY <= listY + 10000) {
+            if (buttonY + BUTTON_HEIGHT >= listY && buttonY <= listY + lastListHeight) {
                 renderTrainTypeButton(context, i, listX, buttonY, mouseX, mouseY, delta);
             }
 
             currentY += BUTTON_HEIGHT + BUTTON_SPACING;
         }
+    }
+
+    private void renderRouteList(DrawContext context, int listX, int listY, int listWidth, int listHeight, int mouseX, int mouseY, float delta) {
+        int currentY = listY;
+        
+        context.drawTextWithShadow(this.textRenderer, Text.translatable("gui.dno.route.available_routes"), listX, listY - 20, 0xFFFFFFFF);
+        
+        List<String> routes = availableRoutes != null ? availableRoutes : new ArrayList<>();
+        int routeItemHeight = 25;
+        
+        for (int i = 0; i < routes.size(); i++) {
+            String routeId = routes.get(i);
+            int buttonY = currentY - scrollOffset;
+
+            if (buttonY + routeItemHeight >= listY && buttonY <= listY + listHeight) {
+                boolean isSelected = routeId.equals(selectedRouteId);
+                renderRouteButton(context, i, listX, buttonY, routeId, isSelected);
+            }
+
+            currentY += routeItemHeight + BUTTON_SPACING;
+        }
+        
+        if (routes.isEmpty()) {
+            context.drawTextWithShadow(this.textRenderer, Text.translatable("gui.dno.route.no_routes"), listX, listY, 0xFF888888);
+        }
+    }
+
+    private void renderRouteCreationView(DrawContext context, int listX, int listY, int listWidth, int listHeight, int mouseX, int mouseY, float delta) {
+        if (routeCreationShowSelected) {
+            renderSelectedStationsForRoute(context, listX, listY, listWidth, listHeight, mouseX, mouseY, delta);
+        } else {
+            renderAvailableStationsForRoute(context, listX, listY, listWidth, listHeight, mouseX, mouseY, delta);
+        }
+    }
+
+    private void renderAvailableStationsForRoute(DrawContext context, int x, int y, int width, int height, int mouseX, int mouseY, float delta) {
+        int currentY = y - scrollOffset;
+        for (String stationId : availableStationIds) {
+            if (currentY + 25 >= y && currentY <= y + height) {
+                boolean isSelected = currentRouteStations != null && currentRouteStations.contains(stationId);
+                renderStationButtonForRoute(context, x, currentY, stationId, isSelected, mouseX, mouseY);
+            }
+            currentY += 25 + BUTTON_SPACING;
+        }
+    }
+
+    private void renderStationButtonForRoute(DrawContext context, int x, int y, String stationId, boolean isSelected, int mouseX, int mouseY) {
+        boolean isHovered = mouseX >= x && mouseX <= x + BUTTON_WIDTH && mouseY >= y && mouseY <= y + 25;
+        boolean isActive = true;
+
+        renderButtonBackground(context, x, y, isHovered, isSelected, isActive, 25, BUTTON_WIDTH - 35);
+        
+        String displayName = getStationDisplayName(stationId);
+        int textStartX = x + 6;
+        int textEndX = x + BUTTON_WIDTH - 35;
+        
+        renderScrollableText(context, displayName, textStartX, y, textEndX, y + 25, 0xFFFFFFFF);
+        
+        int addButtonX = x + BUTTON_WIDTH - 30;
+        int addButtonY = y;
+        int addButtonHeight = 25;
+        
+        boolean addButtonHovered = mouseX >= addButtonX && mouseX <= addButtonX + 25 && mouseY >= addButtonY && mouseY <= addButtonY + addButtonHeight;
+        Identifier addButtonTex = addButtonHovered ? BUTTON_HIGHLIGHTED : BUTTON_NORMAL;
+        context.drawGuiTexture(RenderPipelines.GUI_TEXTURED, addButtonTex, addButtonX, addButtonY, 25, addButtonHeight);
+        context.drawCenteredTextWithShadow(this.textRenderer, Text.literal("+"), addButtonX + 25 / 2, addButtonY + 25 / 2 - 4, 0xFFFFFFFF);
+    }
+
+    private String getStationDisplayName(String stationId) {
+        Map<String, TrackSegment> tracks = TrackManagerClient.getTracksFor(MinecraftClient.getInstance().world);
+        for (TrackSegment segment : tracks.values()) {
+            if (segment.getStationId() != null && segment.getStationId().equals(stationId)) {
+                String name = segment.getStationName();
+                return (name != null && !name.trim().isEmpty()) ? name : stationId;
+            }
+        }
+        return stationId;
+    }
+
+    private void renderSelectedStationsForRoute(DrawContext context, int startX, int startY, int areaWidth, int areaHeight, int mouseX, int mouseY, float delta) {
+        int itemWidth = 90;
+        int itemHeight = 24;
+        int gap = 6;
+        int columns = Math.max(1, (areaWidth + gap) / (itemWidth + gap));
+        int yBase = startY - scrollOffset;
+
+        if (currentRouteStations != null) {
+            for (int i = 0; i < currentRouteStations.size(); i++) {
+                int col = i % columns;
+                int row = i / columns;
+                int bx = startX + col * (itemWidth + gap);
+                int by = yBase + row * (itemHeight + gap);
+
+                if (by + itemHeight < startY || by > startY + areaHeight) {
+                    continue;
+                }
+
+                boolean hover = mouseX >= bx && mouseX <= bx + itemWidth && mouseY >= by && mouseY <= by + itemHeight;
+                Identifier tex = hover ? BUTTON_HIGHLIGHTED : BUTTON_NORMAL;
+                context.drawGuiTexture(RenderPipelines.GUI_TEXTURED, tex, bx, by, itemWidth, itemHeight);
+
+                String stationId = currentRouteStations.get(i);
+                String displayName = getStationDisplayName(stationId);
+                context.enableScissor(bx, by, bx + itemWidth, by + itemHeight);
+                context.drawTextWithShadow(this.textRenderer, Text.literal(displayName), bx + 6, by + 7, 0xFFFFFFFF);
+                context.disableScissor();
+
+                if (hover) {
+                    int controlSize = 16;
+                    int controlsWidth = controlSize * 3 + gap * 2;
+                    int cx = bx + (itemWidth - controlsWidth) / 2;
+                    int cy = by + (itemHeight - controlSize) / 2;
+
+                    boolean hLeft = mouseX >= cx && mouseX <= cx + controlSize && mouseY >= cy && mouseY <= cy + controlSize;
+                    boolean hRemove = mouseX >= cx + controlSize + gap && mouseX <= cx + controlSize + gap + controlSize && mouseY >= cy && mouseY <= cy + controlSize;
+                    boolean hRight = mouseX >= cx + (controlSize + gap) * 2 && mouseX <= cx + (controlSize + gap) * 2 + controlSize && mouseY >= cy && mouseY <= cy + controlSize;
+
+                    context.drawGuiTexture(RenderPipelines.GUI_TEXTURED, hLeft ? BUTTON_HIGHLIGHTED : BUTTON_NORMAL, cx, cy, controlSize, controlSize);
+                    context.drawCenteredTextWithShadow(this.textRenderer, Text.literal("<"), cx + controlSize / 2, cy + 4, 0xFFFFFFFF);
+                    context.drawGuiTexture(RenderPipelines.GUI_TEXTURED, hRemove ? BUTTON_HIGHLIGHTED : BUTTON_NORMAL, cx + controlSize + gap, cy, controlSize, controlSize);
+                    context.drawCenteredTextWithShadow(this.textRenderer, Text.literal("x"), cx + controlSize + gap + controlSize / 2, cy + 4, 0xFFFFFFFF);
+                    context.drawGuiTexture(RenderPipelines.GUI_TEXTURED, hRight ? BUTTON_HIGHLIGHTED : BUTTON_NORMAL, cx + (controlSize + gap) * 2, cy, controlSize, controlSize);
+                    context.drawCenteredTextWithShadow(this.textRenderer, Text.literal(">"), cx + (controlSize + gap) * 2 + controlSize / 2, cy + 4, 0xFFFFFFFF);
+                }
+            }
+        }
+
+        if (currentRouteStations != null && !currentRouteStations.isEmpty()) {
+            int frontIndex = 0;
+            int backIndex = currentRouteStations.size() - 1;
+
+            int frontCol = frontIndex % columns;
+            int frontRow = frontIndex / columns;
+            int backCol = backIndex % columns;
+            int backRow = backIndex / columns;
+            
+            int frontX = startX + frontCol * (itemWidth + gap);
+            int frontY = startY - scrollOffset + frontRow * (itemHeight + gap) - 10;
+            int backX = startX + backCol * (itemWidth + gap);
+            int backY = startY - scrollOffset + backRow * (itemHeight + gap) - 10;
+
+            context.drawTextWithShadow(this.textRenderer, Text.translatable("gui.dno.train_config.front"), frontX, frontY, 0xCCCCCC);
+            context.drawTextWithShadow(this.textRenderer, Text.translatable("gui.dno.train_config.back"), backX, backY, 0xCCCCCC);
+        }
+    }
+
+    private String getRouteDisplayName(String routeId) {
+        if (RouteManagerClient.routeExists(routeId)) {
+            var route = RouteManagerClient.getRoute(routeId);
+            return route != null ? route.getDisplayName() : routeId;
+        }
+
+        return routeId;
+    }
+
+    private void renderRouteButton(DrawContext context, int buttonIndex, int x, int y, String routeId, boolean isSelected) {
+        boolean isHovered = buttonIndex == hoveredButtonIndex;
+        boolean isCurrentlyAssigned = segment.getRouteId() != null && segment.getRouteId().equals(routeId);
+        boolean isActive = !isCurrentlyAssigned;
+
+        int routeItemHeight = 25;
+        renderButtonBackground(context, x, y, isHovered, isSelected, isActive, routeItemHeight);
+        
+        String routeName = getRouteDisplayName(routeId);
+        int color = isCurrentlyAssigned ? 0xFF888888 : 0xFFFFFFFF;
+        context.drawTextWithShadow(this.textRenderer, Text.literal(routeName), x + 6, y + routeItemHeight / 2 - 4, color);
     }
 
     private void renderTrainConfigurationGrid(DrawContext context, int startX, int startY, int areaWidth, int areaHeight, int mouseX, int mouseY, float delta) {
@@ -586,9 +995,10 @@ public class TrackConfigScreen extends Screen {
             TrainConfigLoader.TrainTypeData td = TrainConfigLoader.getTrainType(id);
             String title = td != null ? td.name() : id;
 
-            context.enableScissor(bx, by, bx + itemWidth, by + itemHeight);
-            context.drawTextWithShadow(this.textRenderer, Text.literal(title), bx + 6, by + 7, 0xFFFFFFFF);
-                context.disableScissor();
+            int textStartX = bx + 6;
+            int textEndX = bx + itemWidth - 6;
+            
+            renderScrollableText(context, title, textStartX, by, textEndX, by + itemHeight, 0xFFFFFFFF);
 
             if (hover) {
                 int controlSize = 16;
@@ -638,6 +1048,36 @@ public class TrackConfigScreen extends Screen {
         );
     }
 
+    private void renderScrollableText(DrawContext context, String text, int startX, int startY, int endX, int endY, int color) {
+        int textWidth = this.textRenderer.getWidth(text);
+        int availableWidth = endX - startX;
+        
+        if (textWidth <= availableWidth) {
+            context.drawTextWithShadow(this.textRenderer, Text.literal(text), startX, startY + (endY - startY - 8) / 2, color);
+        } else {
+            int scrollSpeed = 2000;
+            int pauseDuration = 1000;
+            int totalCycle = scrollSpeed + pauseDuration * 2;
+            long time = System.currentTimeMillis();
+            long cycleTime = time % totalCycle;
+            
+            int currentOffset;
+            if (cycleTime < pauseDuration) {
+                currentOffset = 0;
+            } else if (cycleTime < pauseDuration + scrollSpeed) {
+                double progress = (cycleTime - pauseDuration) / (double) scrollSpeed;
+                int scrollDistance = textWidth - availableWidth;
+                currentOffset = (int) (progress * scrollDistance);
+            } else {
+                currentOffset = textWidth - availableWidth;
+            }
+            
+            context.enableScissor(startX, startY, endX, endY);
+            context.drawTextWithShadow(this.textRenderer, Text.literal(text), startX - currentOffset, startY + (endY - startY - 8) / 2, color);
+            context.disableScissor();
+        }
+    }
+
     private void renderScrollbar(DrawContext context, int x, int y, int height, int totalHeight, int mouseX, int mouseY) {
         context.drawGuiTexture(RenderPipelines.GUI_TEXTURED, BUTTON_DISABLED, x, y, 10, height);
 
@@ -658,6 +1098,12 @@ public class TrackConfigScreen extends Screen {
                         handleCarriageConfigClick(mouseX, mouseY, 0, 0, 0);
                 } else {
                         handleTrainConfigClick(mouseX, mouseY, lastListX, lastListY);
+                    }
+                } else if (isRouteTab) {
+                    if (isRouteConfigurationView) {
+                        handleRouteCreationClick(mouseX, mouseY, lastListX, lastListY);
+                    } else {
+                        handleRouteTabClick(mouseX, mouseY, lastListX, lastListY);
                     }
                 } else {
                     handleTrackConfigClick(mouseX, mouseY, lastListX, lastListY);
@@ -754,6 +1200,93 @@ public class TrackConfigScreen extends Screen {
         }
     }
 
+    private void handleRouteTabClick(double mouseX, double mouseY, int listX, int listY) {
+        int currentY = listY;
+        List<String> routes = availableRoutes != null ? availableRoutes : new ArrayList<>();
+        int routeItemHeight = 25;
+        for (int i = 0; i < routes.size(); i++) {
+            String routeId = routes.get(i);
+            int buttonY = currentY - scrollOffset;
+            if (mouseX >= listX && mouseX <= listX + lastListWidth && mouseY >= buttonY && mouseY <= buttonY + routeItemHeight) {
+                if (segment.getRouteId() != null && segment.getRouteId().equals(routeId)) {
+                    break;
+                }
+                selectedRouteId = routeId;
+                break;
+            }
+            currentY += routeItemHeight + BUTTON_SPACING;
+        }
+    }
+
+    private void handleRouteCreationClick(double mouseX, double mouseY, int listX, int listY) {
+        if (routeCreationShowSelected) {
+            handleSelectedStationsClick(mouseX, mouseY, listX, listY);
+        } else {
+            handleAvailableStationsClick(mouseX, mouseY, listX, listY);
+        }
+    }
+
+    private void handleAvailableStationsClick(double mouseX, double mouseY, int listX, int listY) {
+        int currentY = listY - scrollOffset;
+        for (String stationId : availableStationIds) {
+            if (mouseX >= listX && mouseX <= listX + BUTTON_WIDTH && mouseY >= currentY && mouseY <= currentY + 25) {
+                int addButtonX = listX + BUTTON_WIDTH - 30;
+                int addButtonY = currentY;
+                int addButtonHeight = 25;
+                
+                if (mouseX >= addButtonX && mouseX <= addButtonX + 25 && mouseY >= addButtonY && mouseY <= addButtonY + addButtonHeight) {
+                    if (currentRouteStations == null) currentRouteStations = new ArrayList<>();
+                    currentRouteStations.add(stationId);
+                }
+                break;
+            }
+
+            currentY += 25 + BUTTON_SPACING;
+        }
+    }
+
+    private void handleSelectedStationsClick(double mouseX, double mouseY, int listX, int listY) {
+        if (currentRouteStations == null) return;
+        
+        int itemWidth = 90;
+        int itemHeight = 24;
+        int gap = 6;
+        int columns = Math.max(1, (BUTTON_WIDTH + gap) / (itemWidth + gap));
+        int yBase = listY - scrollOffset;
+
+        for (int i = 0; i < currentRouteStations.size(); i++) {
+            int col = i % columns;
+            int row = i / columns;
+            int bx = listX + col * (itemWidth + gap);
+            int by = yBase + row * (itemHeight + gap);
+
+            if (mouseY >= by && mouseY <= by + itemHeight) {
+                int controlSize = 16;
+                int controlsWidth = controlSize * 3 + gap * 2;
+                int cx = bx + (itemWidth - controlsWidth) / 2;
+
+                if (mouseX >= cx && mouseX <= cx + controlSize) {
+                    if (i > 0) {
+                        String temp = currentRouteStations.get(i);
+                        currentRouteStations.set(i, currentRouteStations.get(i - 1));
+                        currentRouteStations.set(i - 1, temp);
+                    }
+                    break;
+                } else if (mouseX >= cx + controlSize + gap && mouseX <= cx + controlSize + gap + controlSize) {
+                    currentRouteStations.remove(i);
+                    break;
+                } else if (mouseX >= cx + (controlSize + gap) * 2 && mouseX <= cx + (controlSize + gap) * 2 + controlSize) {
+                    if (i < currentRouteStations.size() - 1) {
+                        String temp = currentRouteStations.get(i);
+                        currentRouteStations.set(i, currentRouteStations.get(i + 1));
+                        currentRouteStations.set(i + 1, temp);
+                    }
+                    break;
+                }
+            }
+        }
+    }
+
     private void handleTrainConfigClick(double mouseX, double mouseY, int listX, int listY) {
         int currentY = listY;
         List<String> items = filteredTrainIds != null ? filteredTrainIds : availableTrainIds;
@@ -774,6 +1307,23 @@ public class TrackConfigScreen extends Screen {
             }
 
             currentY += BUTTON_HEIGHT + BUTTON_SPACING;
+        }
+    }
+
+    private void createNewRoute() {
+        if (currentRouteStations != null && !currentRouteStations.isEmpty()) {
+            String routeName = routeNameField.getText();
+            if (routeName == null || routeName.trim().isEmpty()) {
+                routeName = "Route";
+            }
+
+            var payload = new com.dooji.dno.network.payloads.CreateRoutePayload(routeName, currentRouteStations);
+            TrainModClientNetworking.sendToServer(payload);
+            isRouteConfigurationView = false;
+            currentRouteStations = new ArrayList<>();
+            
+            updateTrainConfigTabVisibility();
+            refreshRouteList();
         }
     }
 
@@ -846,30 +1396,11 @@ public class TrackConfigScreen extends Screen {
 
     @Override
     public boolean mouseScrolled(double mouseX, double mouseY, double horizontalAmount, double verticalAmount) {
-        int guiY = getGuiY();
-
-        int contentY = guiY + CONTENT_PADDING;
-        int contentWidth = GUI_WIDTH - SIDEBAR_WIDTH - CONTENT_PADDING * 3;
-        int contentHeight = GUI_HEIGHT - FOOTER_HEIGHT - CONTENT_PADDING * 2;
-
-        int listY;
-        if (isTrainConfigTab) {
-            if (isTrainConfigurationView) {
-                listY = contentY + 24 + BUTTON_SPACING;
-            } else {
-                listY = contentY + 24 + BUTTON_SPACING + 24 + BUTTON_SPACING;
-            }
-        } else {
-            listY = contentY + SEARCH_HEIGHT + BUTTON_SPACING;
-        }
-
-        int listHeight = contentHeight - (listY - contentY) - BUTTON_SPACING;
-
         if (mouseX >= lastListX && mouseX <= lastListX + lastListWidth && mouseY >= lastListY && mouseY <= lastListY + lastListHeight) {
-            int totalHeight = calculateTotalHeight(Math.min(BUTTON_WIDTH, contentWidth));
-            if (totalHeight > listHeight) {
+            int totalHeight = calculateTotalHeight(lastListWidth);
+            if (totalHeight > lastListHeight) {
                 scrollOffset -= (int)(verticalAmount * 20);
-                scrollOffset = Math.max(0, Math.min(scrollOffset, totalHeight - listHeight));
+                scrollOffset = Math.max(0, Math.min(scrollOffset, totalHeight - lastListHeight + 1));
                 return true;
             }
         }
@@ -887,10 +1418,32 @@ public class TrackConfigScreen extends Screen {
                 int count = Math.max(1, currentCarriages.size());
                 int rows = (int)Math.ceil((double)count / columns);
                 return rows * (itemHeight + gap) - gap;
-        } else {
+            } else {
                 List<String> items = filteredTrainIds != null ? filteredTrainIds : availableTrainIds;
                 int size = items != null ? items.size() : 0;
                 return size > 0 ? size * (BUTTON_HEIGHT + BUTTON_SPACING) - BUTTON_SPACING : 0;
+            }
+        } else if (isRouteTab) {
+            if (isRouteConfigurationView) {
+                if (routeCreationShowSelected) {
+                    int itemWidth = 90;
+                    int itemHeight = 24;
+                    int gap = 6;
+                    int columns = Math.max(1, (BUTTON_WIDTH + gap) / (itemWidth + gap));
+                    int count = Math.max(1, currentRouteStations != null ? currentRouteStations.size() : 0);
+                    int rows = (int)Math.ceil((double)count / columns);
+                    return rows * (itemHeight + gap) - gap;
+                } else {
+                    int routeItemHeight = 25;
+                    List<String> items = availableStationIds != null ? availableStationIds : new ArrayList<>();
+                    int size = items != null ? items.size() : 0;
+                    return size > 0 ? size * (routeItemHeight + BUTTON_SPACING) - BUTTON_SPACING : 0;
+                }
+            } else {
+                int routeItemHeight = 25;
+                List<String> items = availableRoutes != null ? availableRoutes : new ArrayList<>();
+                int size = items != null ? items.size() : 0;
+                return size > 0 ? size * (routeItemHeight + BUTTON_SPACING) - BUTTON_SPACING : 0;
             }
         } else {
             List<String> items = filteredTrackIds != null ? filteredTrackIds : availableTrackIds;
@@ -934,41 +1487,69 @@ public class TrackConfigScreen extends Screen {
             return;
         }
 
-        List<String> items = isTrainConfigTab ? (filteredTrainIds != null ? filteredTrainIds : availableTrainIds) : (filteredTrackIds != null ? filteredTrackIds : availableTrackIds);
-        for (int i = 0; i < items.size(); i++) {
-            int buttonHeight = getButtonHeight(i);
-
-            int buttonY = currentY - scrollOffset;
-            if (mouseX >= listX && mouseX <= listX + lastListWidth && mouseY >= buttonY && mouseY <= buttonY + buttonHeight) {
-                hoveredButtonIndex = i;
-                break;
+        if (isTrainConfigTab) {
+            List<String> items = filteredTrainIds != null ? filteredTrainIds : availableTrainIds;
+            for (int i = 0; i < items.size(); i++) {
+                int buttonHeight = BUTTON_HEIGHT;
+                int buttonY = currentY - scrollOffset;
+                if (mouseX >= listX && mouseX <= listX + lastListWidth && mouseY >= buttonY && mouseY <= buttonY + buttonHeight) {
+                    hoveredButtonIndex = i;
+                    break;
+                }
+                currentY += buttonHeight + BUTTON_SPACING;
             }
+        } else if (isRouteTab) {
+            if (isRouteConfigurationView) {
+                if (!routeCreationShowSelected) {
+                    List<String> items = availableStationIds != null ? availableStationIds : new ArrayList<>();
+                    for (int i = 0; i < items.size(); i++) {
+                        int buttonHeight = 25;
+                        int buttonY = currentY - scrollOffset;
+                        if (mouseX >= listX && mouseX <= listX + lastListWidth && mouseY >= buttonY && mouseY <= buttonY + buttonHeight) {
+                            hoveredButtonIndex = i;
+                            break;
+                        }
 
-            currentY += buttonHeight + BUTTON_SPACING;
-        }
-    }
+                        currentY += buttonHeight + BUTTON_SPACING;
+                    }
+                }
+            } else {
+                List<String> items = availableRoutes != null ? availableRoutes : new ArrayList<>();
+                for (int i = 0; i < items.size(); i++) {
+                    int buttonHeight = 25;
+                    int buttonY = currentY - scrollOffset;
+                    if (mouseX >= listX && mouseX <= listX + lastListWidth && mouseY >= buttonY && mouseY <= buttonY + buttonHeight) {
+                        hoveredButtonIndex = i;
+                        break;
+                    }
 
-    private int getButtonHeight(int i) {
-        int buttonHeight = BUTTON_HEIGHT;
-        if (!isTrainConfigTab) {
-            List<String> items = filteredTrackIds != null ? filteredTrackIds : availableTrackIds;
-            String trackId = items.get(i);
-            Map<String, TrackRenderer.TrackTypeData> trackTypes = TrackRenderer.getTrackTypes();
-            boolean isTitleOnly = false;
-
-            if (trackTypes != null) {
-                TrackRenderer.TrackTypeData trackData = trackTypes.get(trackId);
-                if (trackData != null) {
-                    boolean hasIcon = trackData.icon() != null;
-                    boolean hasDesc = trackData.description() != null && !trackData.description().isEmpty();
-                    isTitleOnly = !hasIcon && !hasDesc;
+                    currentY += buttonHeight + BUTTON_SPACING;
                 }
             }
+        } else {
+            List<String> items = filteredTrackIds != null ? filteredTrackIds : availableTrackIds;
+            for (int i = 0; i < items.size(); i++) {
+                Map<String, TrackRenderer.TrackTypeData> trackTypes = TrackRenderer.getTrackTypes();
+                boolean isTitleOnly = false;
+                if (trackTypes != null) {
+                    TrackRenderer.TrackTypeData trackData = trackTypes.get(items.get(i));
+                    if (trackData != null) {
+                        boolean hasIcon = trackData.icon() != null;
+                        boolean hasDesc = trackData.description() != null && !trackData.description().isEmpty();
+                        isTitleOnly = !hasIcon && !hasDesc;
+                    }
+                }
 
-            buttonHeight = isTitleOnly ? 25 : BUTTON_HEIGHT;
+                int buttonHeight = isTitleOnly ? 25 : BUTTON_HEIGHT;
+                int buttonY = currentY - scrollOffset;
+                if (mouseX >= listX && mouseX <= listX + lastListWidth && mouseY >= buttonY && mouseY <= buttonY + buttonHeight) {
+                    hoveredButtonIndex = i;
+                    break;
+                }
+                
+                currentY += buttonHeight + BUTTON_SPACING;
+            }
         }
-
-        return buttonHeight;
     }
 
     private void renderTrackTypeButton(DrawContext context, int buttonIndex, int x, int y, int buttonHeight) {
@@ -1217,6 +1798,7 @@ public class TrackConfigScreen extends Screen {
             dwellTimeSeconds,
             curvature,
             null,
+            (isRouteTab && selectedRouteId != null && !selectedRouteId.isEmpty()) ? selectedRouteId : segment.getRouteId(),
             maxSpeed,
             stationName,
             segment.getStationId()

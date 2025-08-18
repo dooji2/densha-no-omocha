@@ -100,7 +100,7 @@ public class TrainRenderer {
 
         List<String> orderedCarriageIds = new ArrayList<>(carriageIds);
         if (train.isReversed()) {
-            java.util.Collections.reverse(orderedCarriageIds);
+            Collections.reverse(orderedCarriageIds);
         }
 
         double currentOffset = 0.0;

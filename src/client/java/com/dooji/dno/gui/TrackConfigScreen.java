@@ -1147,6 +1147,9 @@ public class TrackConfigScreen extends Screen {
 
             List<Double> carriageLengths = new ArrayList<>();
             List<Double> bogieInsets = new ArrayList<>();
+            List<Double> boundingBoxWidths = new ArrayList<>();
+            List<Double> boundingBoxLengths = new ArrayList<>();
+            List<Double> boundingBoxHeights = new ArrayList<>();
 
             final double SPACING_BUFFER = 1.0;
             for (String cid : currentCarriages) {
@@ -1158,9 +1161,15 @@ public class TrackConfigScreen extends Screen {
 
                 double inset = td != null ? td.bogieInset() : 0.1;
                 bogieInsets.add(inset);
+
+                double width = td != null ? td.width() : 1.0;
+                double height = td != null ? td.height() : 1.0;
+                boundingBoxWidths.add(width);
+                boundingBoxLengths.add(base);
+                boundingBoxHeights.add(height);
             }
 
-            UpdateTrainConfigPayload trainPayload = new UpdateTrainConfigPayload(trainId, currentCarriages, carriageLengths, bogieInsets, trackSegmentKey);
+            UpdateTrainConfigPayload trainPayload = new UpdateTrainConfigPayload(trainId, currentCarriages, carriageLengths, bogieInsets, trackSegmentKey, boundingBoxWidths, boundingBoxLengths, boundingBoxHeights);
             TrainModClientNetworking.sendToServer(trainPayload);
         }
 

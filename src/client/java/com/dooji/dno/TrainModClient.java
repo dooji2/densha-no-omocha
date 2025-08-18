@@ -6,21 +6,28 @@ import com.dooji.dno.registry.TrainModItems;
 import com.dooji.dno.track.TrackItemClientHandler;
 import com.dooji.dno.track.TrackRenderer;
 import com.dooji.dno.track.WrenchHoverRenderer;
+import com.dooji.dno.train.TrainBoardingManager;
+import com.dooji.dno.train.TrainBoardingRenderer;
 import com.dooji.dno.train.TrainConfigLoader;
 import com.dooji.dno.train.TrainRenderer;
 import com.dooji.renderix.Renderix;
 
 import net.fabricmc.api.ClientModInitializer;
-import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientWorldEvents;
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
+import net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper;
+import net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents;
 import net.fabricmc.fabric.api.client.item.v1.ItemTooltipCallback;
-import net.fabricmc.fabric.api.resource.ResourceManagerHelper;
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientWorldEvents;
 import net.fabricmc.fabric.api.resource.SimpleSynchronousResourceReloadListener;
-
+import net.fabricmc.fabric.api.resource.ResourceManagerHelper;
+import net.minecraft.client.option.KeyBinding;
+import net.minecraft.client.util.InputUtil;
 import net.minecraft.resource.ResourceManager;
 import net.minecraft.resource.ResourceType;
 import net.minecraft.text.Text;
 import net.minecraft.util.Formatting;
 import net.minecraft.util.Identifier;
+import org.lwjgl.glfw.GLFW;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -32,8 +39,17 @@ public class TrainModClient implements ClientModInitializer {
 	public static final String MOD_ID = "densha-no-omocha-client";
 	public static final Logger LOGGER = LoggerFactory.getLogger(MOD_ID);
 
+	private static KeyBinding disembarkKey;
+
 	@Override
 	public void onInitializeClient() {
+		disembarkKey = KeyBindingHelper.registerKeyBinding(new KeyBinding(
+			"key.dno.disembark",
+			InputUtil.Type.KEYSYM,
+			GLFW.GLFW_KEY_R,
+			"category.dno.general"
+		));
+
 		TrainModClientNetworking.init();
 		TrackItemClientHandler.init();
 		TrackRenderer.init();
@@ -41,6 +57,14 @@ public class TrainModClient implements ClientModInitializer {
 		TrackNodeBlockRenderer.init();
 		TrainRenderer.init();
 		TrainConfigLoader.init();
+		TrainBoardingManager.init();
+		TrainBoardingRenderer.init();
+
+		ClientTickEvents.END_CLIENT_TICK.register(client -> {
+			if (disembarkKey.wasPressed() && TrainBoardingManager.isPlayerBoarded()) {
+				TrainBoardingManager.requestDisembark();
+			}
+		});
 
 		ResourceManagerHelper.get(ResourceType.CLIENT_RESOURCES).registerReloadListener(new SimpleSynchronousResourceReloadListener() {
 			@Override
@@ -80,6 +104,12 @@ public class TrainModClient implements ClientModInitializer {
 		ClientWorldEvents.AFTER_CLIENT_WORLD_CHANGE.register((client, world) -> {
 			TrackManagerClient.removeAll();
 			TrainManagerClient.clearAllTrains();
+			TrainBoardingRenderer.clearCaches();
+			TrainBoardingManager.resetBoardingState();
+		});
+
+		ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> {
+			TrainBoardingManager.resetBoardingState();
 		});
 	}
 }

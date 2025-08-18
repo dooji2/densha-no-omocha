@@ -40,7 +40,9 @@ public class TrainConfigLoader {
         double heightOffset,
         String model,
         DoorConfig doors,
-        BogieConfig bogies
+        BogieConfig bogies,
+        double width,
+        double height
     ) {}
 
     public record DoorPart(
@@ -174,7 +176,9 @@ public class TrainConfigLoader {
                     
                     DoorConfig doors = parseDoorConfig(trainData);
                     BogieConfig bogies = parseBogieConfig(trainData);
-                    TrainTypeData trainTypeData = new TrainTypeData(name, length, bogieInset, icon, description, flipV, isReversed, heightOffset, model, doors, bogies);
+                    double width = trainData.has("width") ? trainData.get("width").getAsDouble() : 1.0;
+                    double height = trainData.has("height") ? trainData.get("height").getAsDouble() : 1.0;
+                    TrainTypeData trainTypeData = new TrainTypeData(name, length, bogieInset, icon, description, flipV, isReversed, heightOffset, model, doors, bogies, width, height);
                     
                     TRAIN_TYPES.put(trainId, trainTypeData);
                 } catch (Exception e) {

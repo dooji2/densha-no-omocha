@@ -32,7 +32,12 @@ public record TrainSyncPayload(String dimensionKey, Map<String, TrainData> train
         Float doorValue,
         Boolean doorTarget,
         Double totalPathLength,
-        Boolean movingForward
+        Boolean movingForward,
+        List<Double> carriageLengths,
+        List<Double> bogieInsets,
+        List<Double> boundingBoxWidths,
+        List<Double> boundingBoxLengths,
+        List<Double> boundingBoxHeights
     ) {}
     public static final CustomPayload.Id<TrainSyncPayload> ID = new CustomPayload.Id<>(Identifier.of(TrainMod.MOD_ID, "train_sync"));
     
@@ -180,6 +185,61 @@ public record TrainSyncPayload(String dimensionKey, Map<String, TrainData> train
         if (trainData.movingForward() != null) {
             buf.writeBoolean(trainData.movingForward());
         }
+
+        List<Double> carriageLengths = trainData.carriageLengths();
+        if (carriageLengths != null) {
+            buf.writeBoolean(true);
+            buf.writeInt(carriageLengths.size());
+            for (Double length : carriageLengths) {
+                buf.writeDouble(length);
+            }
+        } else {
+            buf.writeBoolean(false);
+        }
+
+        List<Double> bogieInsets = trainData.bogieInsets();
+        if (bogieInsets != null) {
+            buf.writeBoolean(true);
+            buf.writeInt(bogieInsets.size());
+            for (Double inset : bogieInsets) {
+                buf.writeDouble(inset);
+            }
+        } else {
+            buf.writeBoolean(false);
+        }
+
+        List<Double> boundingBoxWidths = trainData.boundingBoxWidths();
+        if (boundingBoxWidths != null) {
+            buf.writeBoolean(true);
+            buf.writeInt(boundingBoxWidths.size());
+            for (Double width : boundingBoxWidths) {
+                buf.writeDouble(width);
+            }
+        } else {
+            buf.writeBoolean(false);
+        }
+
+        List<Double> boundingBoxLengths = trainData.boundingBoxLengths();
+        if (boundingBoxLengths != null) {
+            buf.writeBoolean(true);
+            buf.writeInt(boundingBoxLengths.size());
+            for (Double length : boundingBoxLengths) {
+                buf.writeDouble(length);
+            }
+        } else {
+            buf.writeBoolean(false);
+        }
+
+        List<Double> boundingBoxHeights = trainData.boundingBoxHeights();
+        if (boundingBoxHeights != null) {
+            buf.writeBoolean(true);
+            buf.writeInt(boundingBoxHeights.size());
+            for (Double height : boundingBoxHeights) {
+                buf.writeDouble(height);
+            }
+        } else {
+            buf.writeBoolean(false);
+        }
     }
     
     private static TrainData readTrainData(PacketByteBuf buf) {
@@ -291,10 +351,56 @@ public record TrainSyncPayload(String dimensionKey, Map<String, TrainData> train
             movingForward = buf.readBoolean();
         }
         
+        List<Double> carriageLengths = null;
+        if (buf.readBoolean()) {
+            int lengthCount = buf.readInt();
+            carriageLengths = new ArrayList<>();
+            for (int i = 0; i < lengthCount; i++) {
+                carriageLengths.add(buf.readDouble());
+            }
+        }
+
+        List<Double> bogieInsets = null;
+        if (buf.readBoolean()) {
+            int insetCount = buf.readInt();
+            bogieInsets = new ArrayList<>();
+            for (int i = 0; i < insetCount; i++) {
+                bogieInsets.add(buf.readDouble());
+            }
+        }
+
+        List<Double> boundingBoxWidths = null;
+        if (buf.readBoolean()) {
+            int widthCount = buf.readInt();
+            boundingBoxWidths = new ArrayList<>();
+            for (int i = 0; i < widthCount; i++) {
+                boundingBoxWidths.add(buf.readDouble());
+            }
+        }
+
+        List<Double> boundingBoxLengths = null;
+        if (buf.readBoolean()) {
+            int lengthCount = buf.readInt();
+            boundingBoxLengths = new ArrayList<>();
+            for (int i = 0; i < lengthCount; i++) {
+                boundingBoxLengths.add(buf.readDouble());
+            }
+        }
+
+        List<Double> boundingBoxHeights = null;
+        if (buf.readBoolean()) {
+            int heightCount = buf.readInt();
+            boundingBoxHeights = new ArrayList<>();
+            for (int i = 0; i < heightCount; i++) {
+                boundingBoxHeights.add(buf.readDouble());
+            }
+        }
+        
         return new TrainData(trainId, carriageIds, isReversed, trackSegmentKey, 
            speed, maxSpeed, accelerationConstant, movementState,
            isReturningToDepot, dwellStartTime, currentPlatformId,
            visitedPlatforms, currentPathDistance, continuousPathPoints,
-           path, currentPlatformIndex, doorValue, doorTarget, totalPathLength, movingForward);
+           path, currentPlatformIndex, doorValue, doorTarget, totalPathLength, movingForward,
+           carriageLengths, bogieInsets, boundingBoxWidths, boundingBoxLengths, boundingBoxHeights);
     }
 }

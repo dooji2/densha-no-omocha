@@ -44,6 +44,9 @@ public class TrainClient {
     private int currentPlatformIndex;
     private List<Double> carriageLengths;
     private List<Double> bogieInsets;
+    private List<Double> boundingBoxWidths;
+    private List<Double> boundingBoxLengths;
+    private List<Double> boundingBoxHeights;
 
     public TrainClient(String trainId, List<String> carriageIds, boolean isReversed, String trackSegmentKey) {
         this.trainId = trainId;
@@ -70,6 +73,9 @@ public class TrainClient {
         this.currentPlatformIndex = 0;
         this.carriageLengths = new ArrayList<>();
         this.bogieInsets = new ArrayList<>();
+        this.boundingBoxWidths = new ArrayList<>();
+        this.boundingBoxLengths = new ArrayList<>();
+        this.boundingBoxHeights = new ArrayList<>();
     }
 
     public void simulateTrainClient(World world, float frameDelta) {
@@ -126,6 +132,26 @@ public class TrainClient {
             
             if (serverData.movingForward() != null) {
                 this.movingForward = serverData.movingForward();
+            }
+
+            if (serverData.carriageLengths() != null) {
+                this.carriageLengths = new ArrayList<>(serverData.carriageLengths());
+            }
+
+            if (serverData.bogieInsets() != null) {
+                this.bogieInsets = new ArrayList<>(serverData.bogieInsets());
+            }
+
+            if (serverData.boundingBoxWidths() != null) {
+                this.boundingBoxWidths = new ArrayList<>(serverData.boundingBoxWidths());
+            }
+
+            if (serverData.boundingBoxLengths() != null) {
+                this.boundingBoxLengths = new ArrayList<>(serverData.boundingBoxLengths());
+            }
+
+            if (serverData.boundingBoxHeights() != null) {
+                this.boundingBoxHeights = new ArrayList<>(serverData.boundingBoxHeights());
             }
 
             String state = serverData.movementState();
@@ -436,6 +462,30 @@ public class TrainClient {
 
     public List<Double> getBogieInsets() {
         return new ArrayList<>(bogieInsets);
+    }
+
+    public void setBoundingBoxWidths(List<Double> widths) {
+        this.boundingBoxWidths = new ArrayList<>(widths);
+    }
+
+    public List<Double> getBoundingBoxWidths() {
+        return new ArrayList<>(boundingBoxWidths);
+    }
+
+    public void setBoundingBoxLengths(List<Double> lengths) {
+        this.boundingBoxLengths = new ArrayList<>(lengths);
+    }
+
+    public List<Double> getBoundingBoxLengths() {
+        return new ArrayList<>(boundingBoxLengths);
+    }
+
+    public void setBoundingBoxHeights(List<Double> heights) {
+        this.boundingBoxHeights = new ArrayList<>(heights);
+    }
+
+    public List<Double> getBoundingBoxHeights() {
+        return new ArrayList<>(boundingBoxHeights);
     }
 
     public float getDoorValue() {

@@ -75,4 +75,16 @@ public class TrainModClientNetworking {
     public static void sendToServer(RefreshTrainPathPayload payload) {
         ClientPlayNetworking.send(payload);
     }
+
+    public static void sendToServer(RequestBoardingPayload payload) {
+        ClientPlayNetworking.send(payload);
+    }
+
+    public static void sendToServer(RequestDisembarkPayload payload) {
+        ClientPlayNetworking.send(payload);
+    }
+
+    public static void sendToServer(PlayerPositionUpdatePayload payload) {
+        ClientPlayNetworking.send(payload);
+    }
 }

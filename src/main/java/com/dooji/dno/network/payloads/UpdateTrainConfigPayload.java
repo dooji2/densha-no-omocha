@@ -8,7 +8,7 @@ import net.minecraft.util.Identifier;
 
 import java.util.List;
 
-public record UpdateTrainConfigPayload(String trainId, List<String> carriageIds, List<Double> carriageLengths, List<Double> bogieInsets, String trackSegmentKey) implements CustomPayload {
+public record UpdateTrainConfigPayload(String trainId, List<String> carriageIds, List<Double> carriageLengths, List<Double> bogieInsets, String trackSegmentKey, List<Double> boundingBoxWidths, List<Double> boundingBoxLengths, List<Double> boundingBoxHeights) implements CustomPayload {
     public static final CustomPayload.Id<UpdateTrainConfigPayload> ID = new CustomPayload.Id<>(Identifier.of(TrainMod.MOD_ID, "update_train_config"));
 
     public static final PacketCodec<PacketByteBuf, UpdateTrainConfigPayload> CODEC = PacketCodec.ofStatic(
@@ -18,6 +18,9 @@ public record UpdateTrainConfigPayload(String trainId, List<String> carriageIds,
             buf.writeCollection(payload.carriageLengths(), PacketByteBuf::writeDouble);
             buf.writeCollection(payload.bogieInsets(), PacketByteBuf::writeDouble);
             buf.writeString(payload.trackSegmentKey());
+            buf.writeCollection(payload.boundingBoxWidths(), PacketByteBuf::writeDouble);
+            buf.writeCollection(payload.boundingBoxLengths(), PacketByteBuf::writeDouble);
+            buf.writeCollection(payload.boundingBoxHeights(), PacketByteBuf::writeDouble);
         },
         buf -> {
             String trainId = buf.readString();
@@ -25,7 +28,10 @@ public record UpdateTrainConfigPayload(String trainId, List<String> carriageIds,
             List<Double> carriageLengths = buf.readList(PacketByteBuf::readDouble);
             List<Double> bogieInsets = buf.readList(PacketByteBuf::readDouble);
             String trackSegmentKey = buf.readString();
-            return new UpdateTrainConfigPayload(trainId, carriageIds, carriageLengths, bogieInsets, trackSegmentKey);
+            List<Double> boundingBoxWidths = buf.readList(PacketByteBuf::readDouble);
+            List<Double> boundingBoxLengths = buf.readList(PacketByteBuf::readDouble);
+            List<Double> boundingBoxHeights = buf.readList(PacketByteBuf::readDouble);
+            return new UpdateTrainConfigPayload(trainId, carriageIds, carriageLengths, bogieInsets, trackSegmentKey, boundingBoxWidths, boundingBoxLengths, boundingBoxHeights);
         }
     );
 

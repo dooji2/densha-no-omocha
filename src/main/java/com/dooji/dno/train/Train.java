@@ -36,6 +36,10 @@ public class Train {
     private int currentPlatformIndex;
     private List<Double> carriageLengths;
     private List<Double> bogieInsets;
+    private List<Double> boundingBoxWidths;
+    private List<Double> boundingBoxLengths;
+    private List<Double> boundingBoxHeights;
+    private Map<String, BoardingData> boardedPlayers;
 
     public enum MovementState {
         WAITING_IN_DEPOT,
@@ -47,6 +51,8 @@ public class Train {
         DWELLING_AT_DEPOT,
         SPAWNED
     }
+    
+    public record BoardingData(int carriageIndex, double relativeX, double relativeY, double relativeZ) {}
 
     public Train(String trainId) {
         this.trainId = trainId;
@@ -73,6 +79,10 @@ public class Train {
         this.currentPlatformIndex = 0;
         this.carriageLengths = new ArrayList<>();
         this.bogieInsets = new ArrayList<>();
+        this.boundingBoxWidths = new ArrayList<>();
+        this.boundingBoxLengths = new ArrayList<>();
+        this.boundingBoxHeights = new ArrayList<>();
+        this.boardedPlayers = new HashMap<>();
     }
 
     public Train(String trainId, List<String> carriageIds, boolean isReversed) {
@@ -305,6 +315,50 @@ public class Train {
 
     public List<Double> getBogieInsets() {
         return new ArrayList<>(bogieInsets);
+    }
+
+    public void setBoundingBoxWidths(List<Double> widths) {
+        this.boundingBoxWidths = new ArrayList<>(widths);
+    }
+
+    public List<Double> getBoundingBoxWidths() {
+        return new ArrayList<>(boundingBoxWidths);
+    }
+
+    public void setBoundingBoxLengths(List<Double> lengths) {
+        this.boundingBoxLengths = new ArrayList<>(lengths);
+    }
+
+    public List<Double> getBoundingBoxLengths() {
+        return new ArrayList<>(boundingBoxLengths);
+    }
+
+    public void setBoundingBoxHeights(List<Double> heights) {
+        this.boundingBoxHeights = new ArrayList<>(heights);
+    }
+
+    public List<Double> getBoundingBoxHeights() {
+        return new ArrayList<>(boundingBoxHeights);
+    }
+    
+    public Map<String, BoardingData> getBoardedPlayers() {
+        return new HashMap<>(boardedPlayers);
+    }
+    
+    public void addBoardedPlayer(String playerId, int carriageIndex, double relativeX, double relativeY, double relativeZ) {
+        boardedPlayers.put(playerId, new BoardingData(carriageIndex, relativeX, relativeY, relativeZ));
+    }
+    
+    public void removeBoardedPlayer(String playerId) {
+        boardedPlayers.remove(playerId);
+    }
+    
+    public boolean isPlayerBoarded(String playerId) {
+        return boardedPlayers.containsKey(playerId);
+    }
+    
+    public BoardingData getPlayerBoardingData(String playerId) {
+        return boardedPlayers.get(playerId);
     }
 
     public float getDoorValue() {
@@ -728,6 +782,54 @@ public class Train {
             tag.put("bogieInsets", insetList);
         }
 
+        if (boundingBoxWidths != null && !boundingBoxWidths.isEmpty()) {
+            NbtList widthList = new NbtList();
+            for (int i = 0; i < boundingBoxWidths.size(); i++) {
+                NbtCompound width = new NbtCompound();
+                width.putDouble("v", boundingBoxWidths.get(i));
+                widthList.add(width);
+            }
+
+            tag.put("boundingBoxWidths", widthList);
+        }
+
+        if (boundingBoxLengths != null && !boundingBoxLengths.isEmpty()) {
+            NbtList lengthList = new NbtList();
+            for (int i = 0; i < boundingBoxLengths.size(); i++) {
+                NbtCompound length = new NbtCompound();
+                length.putDouble("v", boundingBoxLengths.get(i));
+                lengthList.add(length);
+            }
+
+            tag.put("boundingBoxLengths", lengthList);
+        }
+
+        if (boundingBoxHeights != null && !boundingBoxHeights.isEmpty()) {
+            NbtList heightList = new NbtList();
+            for (int i = 0; i < boundingBoxHeights.size(); i++) {
+                NbtCompound height = new NbtCompound();
+                height.putDouble("v", boundingBoxHeights.get(i));
+                heightList.add(height);
+            }
+
+            tag.put("boundingBoxHeights", heightList);
+        }
+
+        if (boardedPlayers != null && !boardedPlayers.isEmpty()) {
+            NbtCompound boardedPlayersTag = new NbtCompound();
+            for (Map.Entry<String, BoardingData> entry : boardedPlayers.entrySet()) {
+                String playerId = entry.getKey();
+                BoardingData data = entry.getValue();
+                NbtCompound playerTag = new NbtCompound();
+                playerTag.putInt("carriageIndex", data.carriageIndex());
+                playerTag.putDouble("relativeX", data.relativeX());
+                playerTag.putDouble("relativeY", data.relativeY());
+                playerTag.putDouble("relativeZ", data.relativeZ());
+                boardedPlayersTag.put(playerId, playerTag);
+            }
+            tag.put("boardedPlayers", boardedPlayersTag);
+        }
+
         return tag;
     }
 
@@ -815,6 +917,39 @@ public class Train {
             train.bogieInsets.add(el.getDouble("v").orElse(0.1));
         }
 
+        train.boundingBoxWidths = new ArrayList<>();
+        NbtList widthList = tag.getListOrEmpty("boundingBoxWidths");
+        for (int i = 0; i < widthList.size(); i++) {
+            NbtCompound width = widthList.getCompound(i).orElse(new NbtCompound());
+            train.boundingBoxWidths.add(width.getDouble("v").orElse(1.0));
+        }
+
+        train.boundingBoxLengths = new ArrayList<>();
+        NbtList lengthList = tag.getListOrEmpty("boundingBoxLengths");
+        for (int i = 0; i < lengthList.size(); i++) {
+            NbtCompound length = lengthList.getCompound(i).orElse(new NbtCompound());
+            train.boundingBoxLengths.add(length.getDouble("v").orElse(1.0));
+        }
+
+        train.boundingBoxHeights = new ArrayList<>();
+        NbtList heightList = tag.getListOrEmpty("boundingBoxHeights");
+        for (int i = 0; i < heightList.size(); i++) {
+            NbtCompound height = heightList.getCompound(i).orElse(new NbtCompound());
+            train.boundingBoxHeights.add(height.getDouble("v").orElse(1.0));
+        }
+
+        train.boardedPlayers = new HashMap<>();
+        NbtCompound boardedPlayersTag = tag.getCompound("boardedPlayers").orElse(new NbtCompound());
+        for (String playerId : boardedPlayersTag.getKeys()) {
+            NbtCompound playerData = boardedPlayersTag.getCompound(playerId).orElse(new NbtCompound());
+            int carriageIndex = playerData.getInt("carriageIndex").orElse(0);
+            double relativeX = playerData.getDouble("relativeX").orElse(0.0);
+            double relativeY = playerData.getDouble("relativeY").orElse(0.0);
+            double relativeZ = playerData.getDouble("relativeZ").orElse(0.0);
+            train.boardedPlayers.put(playerId, new BoardingData(carriageIndex, relativeX, relativeY, relativeZ));
+        }
+
         return train;
     }
-} 
+}
+

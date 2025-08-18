@@ -6,6 +6,7 @@ import com.dooji.dno.track.TrackManager;
 import com.dooji.dno.track.TrackSegment;
 
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
+import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
 
 import net.minecraft.nbt.NbtCompound;
 import net.minecraft.nbt.NbtIo;
@@ -30,6 +31,9 @@ import java.util.Map;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.stream.Collectors;
+import com.dooji.dno.network.payloads.BoardingSyncPayload;
+import net.minecraft.server.network.ServerPlayerEntity;
+import com.dooji.dno.network.payloads.BoardingResponsePayload;
 
 public class TrainManager {
     private static final Map<String, Map<String, Train>> dimensionKeyToTrains = new HashMap<>();
@@ -48,7 +52,7 @@ public class TrainManager {
         });
     }
 
-    public static void updateTrainConfiguration(World world, String trainId, List<String> carriageIds, List<Double> carriageLengths, List<Double> bogieInsets, String trackSegmentKey) {
+    public static void updateTrainConfiguration(World world, String trainId, List<String> carriageIds, List<Double> carriageLengths, List<Double> bogieInsets, String trackSegmentKey, List<Double> boundingBoxWidths, List<Double> boundingBoxLengths, List<Double> boundingBoxHeights) {
         String dimensionKey = getDimensionKey(world);
         Map<String, Train> worldTrains = dimensionKeyToTrains.computeIfAbsent(dimensionKey, k -> new HashMap<>());
 
@@ -72,6 +76,9 @@ public class TrainManager {
 
         if (carriageLengths != null) train.setCarriageLengths(carriageLengths);
         if (bogieInsets != null) train.setBogieInsets(bogieInsets);
+        if (boundingBoxWidths != null) train.setBoundingBoxWidths(boundingBoxWidths);
+        if (boundingBoxLengths != null) train.setBoundingBoxLengths(boundingBoxLengths);
+        if (boundingBoxHeights != null) train.setBoundingBoxHeights(boundingBoxHeights);
 
         try {
             String[] parts = trackSegmentKey.split("->");
@@ -260,6 +267,56 @@ public class TrainManager {
 
         saveTrains(world);
         TrainModNetworking.broadcastTrainSync(world);
+    }
+
+    public static void handleBoardingRequest(ServerWorld world, ServerPlayerEntity player, String trainId, int carriageIndex, double relativeX, double relativeY, double relativeZ) {  
+        Train train = getTrainById(world, trainId);
+        if (train == null) {
+            sendBoardingResponse(world, player, trainId, carriageIndex, false);
+            return;
+        }
+        
+        if (train.getMovementState() != Train.MovementState.DWELLING_AT_PLATFORM) {
+            sendBoardingResponse(world, player, trainId, carriageIndex, false);
+            return;
+        }
+
+        if (train.isPlayerBoarded(player.getUuidAsString())) {
+            sendBoardingResponse(world, player, trainId, carriageIndex, false);
+            return;
+        }
+
+        train.addBoardedPlayer(player.getUuidAsString(), carriageIndex, relativeX, relativeY, relativeZ);
+        sendBoardingResponse(world, player, trainId, carriageIndex, true);
+        broadcastBoardingSync(world);
+    }
+
+    public static void handleDisembarkRequest(ServerWorld world, ServerPlayerEntity player, String trainId) {
+        Train train = getTrainById(world, trainId);
+        if (train == null) {
+            return;
+        }
+
+        if (!train.isPlayerBoarded(player.getUuidAsString())) {
+            return;
+        }
+
+        train.removeBoardedPlayer(player.getUuidAsString());
+        broadcastBoardingSync(world);
+    }
+
+    public static void handlePlayerPositionUpdate(ServerWorld world, ServerPlayerEntity player, String trainId, int carriageIndex, double relativeX, double relativeY, double relativeZ) {
+        Train train = getTrainById(world, trainId);
+        if (train == null) {
+            return;
+        }
+
+        if (!train.isPlayerBoarded(player.getUuidAsString())) {
+            return;
+        }
+
+        train.addBoardedPlayer(player.getUuidAsString(), carriageIndex, relativeX, relativeY, relativeZ);
+        broadcastBoardingSync(world);
     }
 
     private static List<TrackSegment> buildPathFromSiding(Map<String, TrackSegment> allTracks, TrackSegment startTrack) {
@@ -836,5 +893,30 @@ public class TrainManager {
         if (world instanceof ServerWorld serverWorld) {
             TrainModNetworking.broadcastTrainSync(serverWorld);
         }
+    }
+
+    private static void broadcastBoardingSync(ServerWorld world) {
+        Map<String, List<BoardingSyncPayload.BoardingData>> allBoardingData = new HashMap<>();
+        
+        for (Train train : getTrainsFor(world).values()) {
+            List<BoardingSyncPayload.BoardingData> trainBoardingData = new ArrayList<>();
+            for (Map.Entry<String, Train.BoardingData> entry : train.getBoardedPlayers().entrySet()) {
+                String playerId = entry.getKey();
+                Train.BoardingData data = entry.getValue();
+                trainBoardingData.add(new BoardingSyncPayload.BoardingData(playerId, data.carriageIndex(), data.relativeX(), data.relativeY(), data.relativeZ()));
+            }
+
+            allBoardingData.put(train.getTrainId(), trainBoardingData);
+        }
+        
+        BoardingSyncPayload payload = new BoardingSyncPayload(allBoardingData);
+        for (ServerPlayerEntity player : world.getPlayers()) {
+            ServerPlayNetworking.send(player, payload);
+        }
+    }
+
+    private static void sendBoardingResponse(ServerWorld world, ServerPlayerEntity player, String trainId, int carriageIndex, boolean success) {
+        BoardingResponsePayload response = new BoardingResponsePayload(trainId, carriageIndex, success, 0.0, 0.0, 0.0);
+        ServerPlayNetworking.send(player, response);
     }
 }

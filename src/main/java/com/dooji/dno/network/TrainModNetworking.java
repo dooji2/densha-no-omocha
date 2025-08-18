@@ -15,6 +15,11 @@ import com.dooji.dno.network.payloads.SyncTracksPayload;
 import com.dooji.dno.network.payloads.UpdateTrackSegmentPayload;
 import com.dooji.dno.network.payloads.UpdateTrainConfigPayload;
 import com.dooji.dno.network.payloads.TrainSyncPayload;
+import com.dooji.dno.network.payloads.RequestBoardingPayload;
+import com.dooji.dno.network.payloads.RequestDisembarkPayload;
+import com.dooji.dno.network.payloads.PlayerPositionUpdatePayload;
+import com.dooji.dno.network.payloads.BoardingResponsePayload;
+import com.dooji.dno.network.payloads.BoardingSyncPayload;
 
 import net.fabricmc.fabric.api.entity.event.v1.ServerEntityWorldChangeEvents;
 import net.fabricmc.fabric.api.entity.event.v1.ServerPlayerEvents;
@@ -34,12 +39,17 @@ public class TrainModNetworking {
         PayloadTypeRegistry.playS2C().register(BreakTrackSegmentPayload.ID, BreakTrackSegmentPayload.CODEC);
         PayloadTypeRegistry.playS2C().register(UpdateTrackSegmentPayload.ID, UpdateTrackSegmentPayload.CODEC);
         PayloadTypeRegistry.playS2C().register(TrainSyncPayload.ID, TrainSyncPayload.CODEC);
+        PayloadTypeRegistry.playS2C().register(BoardingResponsePayload.ID, BoardingResponsePayload.CODEC);
+        PayloadTypeRegistry.playS2C().register(BoardingSyncPayload.ID, BoardingSyncPayload.CODEC);
 
         PayloadTypeRegistry.playC2S().register(PlaceTrackSegmentPayload.ID, PlaceTrackSegmentPayload.CODEC);
         PayloadTypeRegistry.playC2S().register(BreakTrackSegmentPayload.ID, BreakTrackSegmentPayload.CODEC);
         PayloadTypeRegistry.playC2S().register(UpdateTrackSegmentPayload.ID, UpdateTrackSegmentPayload.CODEC);
         PayloadTypeRegistry.playC2S().register(UpdateTrainConfigPayload.ID, UpdateTrainConfigPayload.CODEC);
         PayloadTypeRegistry.playC2S().register(RefreshTrainPathPayload.ID, RefreshTrainPathPayload.CODEC);
+        PayloadTypeRegistry.playC2S().register(RequestBoardingPayload.ID, RequestBoardingPayload.CODEC);
+        PayloadTypeRegistry.playC2S().register(RequestDisembarkPayload.ID, RequestDisembarkPayload.CODEC);
+        PayloadTypeRegistry.playC2S().register(PlayerPositionUpdatePayload.ID, PlayerPositionUpdatePayload.CODEC);
 
         ServerPlayConnectionEvents.JOIN.register((handler, sender, server) -> {
             syncTracksToPlayer(handler.getPlayer());
@@ -96,7 +106,7 @@ public class TrainModNetworking {
             ServerPlayerEntity player = context.player();
             ServerWorld world = (ServerWorld) player.getWorld();
 
-            TrainManager.updateTrainConfiguration(world, payload.trainId(), payload.carriageIds(), payload.carriageLengths(), payload.bogieInsets(), payload.trackSegmentKey());
+            TrainManager.updateTrainConfiguration(world, payload.trainId(), payload.carriageIds(), payload.carriageLengths(), payload.bogieInsets(), payload.trackSegmentKey(), payload.boundingBoxWidths(), payload.boundingBoxLengths(), payload.boundingBoxHeights());
         });
 
         ServerPlayNetworking.registerGlobalReceiver(RefreshTrainPathPayload.ID, (payload, context) -> {
@@ -107,6 +117,27 @@ public class TrainModNetworking {
             }
             
             TrainManager.handleRefreshPathRequest(world, payload.trainId(), payload.sidingStart(), payload.sidingEnd());
+        });
+
+        ServerPlayNetworking.registerGlobalReceiver(RequestBoardingPayload.ID, (payload, context) -> {
+            ServerPlayerEntity player = context.player();
+            ServerWorld world = (ServerWorld) player.getWorld();
+
+            TrainManager.handleBoardingRequest(world, player, payload.trainId(), payload.carriageIndex(), payload.relativeX(), payload.relativeY(), payload.relativeZ());
+        });
+
+        ServerPlayNetworking.registerGlobalReceiver(RequestDisembarkPayload.ID, (payload, context) -> {
+            ServerPlayerEntity player = context.player();
+            ServerWorld world = (ServerWorld) player.getWorld();
+
+            TrainManager.handleDisembarkRequest(world, player, payload.trainId());
+        });
+
+        ServerPlayNetworking.registerGlobalReceiver(PlayerPositionUpdatePayload.ID, (payload, context) -> {
+            ServerPlayerEntity player = context.player();
+            ServerWorld world = (ServerWorld) player.getWorld();
+
+            TrainManager.handlePlayerPositionUpdate(world, player, payload.trainId(), payload.carriageIndex(), payload.relativeX(), payload.relativeY(), payload.relativeZ());
         });
     }
 
@@ -155,7 +186,12 @@ public class TrainModNetworking {
                     train.getDoorValue(),
                     train.getDoorTarget(),
                     train.getTotalPathLength(),
-                    train.isMovingForward()
+                    train.isMovingForward(),
+                    train.getCarriageLengths(),
+                    train.getBogieInsets(),
+                    train.getBoundingBoxWidths(),
+                    train.getBoundingBoxLengths(),
+                    train.getBoundingBoxHeights()
                 );
 
                 trainDataMap.put(entry.getKey(), trainData);
@@ -193,7 +229,12 @@ public class TrainModNetworking {
                     train.getDoorValue(),
                     train.getDoorTarget(),
                     train.getTotalPathLength(),
-                    train.isMovingForward()
+                    train.isMovingForward(),
+                    train.getCarriageLengths(),
+                    train.getBogieInsets(),
+                    train.getBoundingBoxWidths(),
+                    train.getBoundingBoxLengths(),
+                    train.getBoundingBoxHeights()
                 );
 
                 trainDataMap.put(entry.getKey(), trainData);

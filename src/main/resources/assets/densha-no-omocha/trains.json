@@ -8,7 +8,7 @@
     "bogieInset": 0.18,
     "flipv": false,
     "isReversed": true,
-    "heightOffset": 0.0,
+    "heightOffset": 0.8,
     "bogies": [
       {
             "model": "densha-no-omocha:trains/toy_train/bogie.obj",
@@ -31,7 +31,7 @@
     "bogieInset": 0.2,
     "flipv": false,
     "isReversed": true,
-    "heightOffset": 0.0,
+    "heightOffset": 0.8,
     "bogies": [
         {
             "model": "densha-no-omocha:trains/toy_train/bogie.obj",

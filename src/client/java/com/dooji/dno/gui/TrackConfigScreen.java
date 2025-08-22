@@ -146,6 +146,12 @@ public class TrackConfigScreen extends Screen {
 
         loadAvailableOptions();
 
+        if (isRouteTab) {
+            requestRouteSync();
+            loadRouteData();
+            refreshRouteList();
+        }
+
         int centerX = this.width / 2;
         int centerY = this.height / 2;
         int guiX = centerX - GUI_WIDTH / 2;
@@ -336,6 +342,7 @@ public class TrackConfigScreen extends Screen {
 
     private int routeSyncTicks = 0;
     private static final int ROUTE_SYNC_INTERVAL = 60;
+    private int lastRouteCount = 0;
     
     @Override
     public void tick() {
@@ -346,6 +353,13 @@ public class TrackConfigScreen extends Screen {
             if (routeSyncTicks >= ROUTE_SYNC_INTERVAL) {
                 routeSyncTicks = 0;
                 requestRouteSync();
+            }
+
+            int currentRouteCount = RouteManagerClient.getAllRoutes().size();
+            if (currentRouteCount != lastRouteCount) {
+                lastRouteCount = currentRouteCount;
+                loadRouteData();
+                refreshRouteList();
             }
         } else {
             routeSyncTicks = 0;

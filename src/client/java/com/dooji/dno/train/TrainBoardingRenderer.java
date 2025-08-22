@@ -96,6 +96,7 @@ public class TrainBoardingRenderer {
                     Vec3d playerWorldPos = carriageCenter
                         .add(new Vec3d(Math.cos(carriageYaw), 0, -Math.sin(carriageYaw)).multiply(relativePosition.x))
                         .add(new Vec3d(0, 1, 0).multiply(relativePosition.y))
+                        .add(new Vec3d(0, 1, 0).multiply(trainData.heightOffset()))
                         .add(new Vec3d(Math.sin(carriageYaw), 0, Math.cos(carriageYaw)).multiply(relativePosition.z));
                     
                     player.setPosition(playerWorldPos);
@@ -124,12 +125,6 @@ public class TrainBoardingRenderer {
         Vec2f input = player.input.getMovementInput();
         if (input.lengthSquared() > 0) {
             double moveSpeed = 0.1;
-            
-            float yawRad = (float) Math.toRadians(player.getYaw());
-            Vec3d forwardWorld = new Vec3d(-Math.sin(yawRad), 0, Math.cos(yawRad));
-            Vec3d rightWorld = new Vec3d(-forwardWorld.z, 0, forwardWorld.x).normalize();
-            
-            Vec3d worldMovement = rightWorld.multiply(input.x * moveSpeed).add(forwardWorld.multiply(input.y * moveSpeed));
             double trainPathDistance = train.getCurrentPathDistance();
 
             List<String> carriageIds = train.getCarriageIds();
@@ -137,48 +132,65 @@ public class TrainBoardingRenderer {
             if (train.isReversed()) {
                 Collections.reverse(orderedCarriageIds);
             }
-            
+
             double currentOffset = 0.0;
             for (int i = 0; i < orderedCarriageIds.size(); i++) {
                 if (i == TrainBoardingManager.getCurrentBoardedCarriageIndex()) {
                     String carriageId = orderedCarriageIds.get(i);
                     TrainConfigLoader.TrainTypeData currentTrainData = TrainConfigLoader.getTrainType(carriageId);
-                    
+
                     if (currentTrainData != null) {
                         double carriageLength = currentTrainData.length();
                         double inset = currentTrainData.bogieInset();
                         double insetDist = MathHelper.clamp(inset, 0.0, 0.49) * carriageLength;
-                        
+
                         double frontOffset = currentOffset + insetDist;
                         double rearOffset = currentOffset + carriageLength - insetDist;
-                        
+
                         Vec3d frontPos = train.getPositionAlongContinuousPath(trainPathDistance - frontOffset);
                         Vec3d rearPos = train.getPositionAlongContinuousPath(trainPathDistance - rearOffset);
-                        
+
                         if (frontPos != null && rearPos != null) {
                             double dx = rearPos.x - frontPos.x;
                             double dz = rearPos.z - frontPos.z;
                             double dy = frontPos.y - rearPos.y;
-                            
+
                             double horiz = Math.sqrt(dx * dx + dz * dz);
                             double carriageYaw = Math.atan2(dx, dz);
                             double carriagePitch = horiz > 1e-4 ? Math.atan2(dy, horiz) : 0.0;
-                            
+
                             if (train.isReversed()) {
                                 carriageYaw += Math.PI;
                                 carriagePitch = -carriagePitch;
                             }
 
-                            double localDX = worldMovement.dotProduct(new Vec3d(-Math.cos(carriageYaw), 0, Math.sin(carriageYaw)));
-                            double localDY = worldMovement.dotProduct(new Vec3d(0, 1, 0));
-                            double localDZ = worldMovement.dotProduct(new Vec3d(Math.sin(carriageYaw), 0, Math.cos(carriageYaw)));
+                            float playerYaw = player.getYaw();
+                            double playerYawRad = Math.toRadians(playerYaw);
+
+                            double playerForwardX = -Math.sin(playerYawRad);
+                            double playerForwardZ = Math.cos(playerYawRad);
+                            double playerRightX = -playerForwardZ;
+                            double playerRightZ = playerForwardX;
+
+                            double cosCarriageYaw = Math.cos(carriageYaw);
+                            double sinCarriageYaw = Math.sin(carriageYaw);
+
+                            double localForwardX = playerForwardX * (-cosCarriageYaw) + playerForwardZ * sinCarriageYaw;
+                            double localForwardZ = playerForwardX * (-sinCarriageYaw) + playerForwardZ * (-cosCarriageYaw);
+
+                            double localRightX = playerRightX * (-cosCarriageYaw) + playerRightZ * sinCarriageYaw;
+                            double localRightZ = playerRightX * (-sinCarriageYaw) + playerRightZ * (-cosCarriageYaw);
+
+                            double localDX = localRightX * input.x * moveSpeed - localForwardX * input.y * moveSpeed;
+                            double localDZ = localRightZ * input.x * moveSpeed - localForwardZ * input.y * moveSpeed;
+                            double localDY = 0;
 
                             Vec3d newRelativePos = relativePosition.add(new Vec3d(localDX, localDY, localDZ));
 
-                            double maxX = trainData.width() / 2.0;
-                            double maxZ = trainData.length() / 2.0;
-                            double maxY = trainData.height() / 2.0;
-                            
+                            double maxX = currentTrainData.width() / 2.0;
+                            double maxZ = currentTrainData.length() / 2.0;
+                            double maxY = currentTrainData.height() / 2.0;
+
                             newRelativePos = new Vec3d(
                                 Math.max(-maxX, Math.min(maxX, newRelativePos.x)),
                                 Math.max(-maxY, Math.min(maxY, newRelativePos.y)),
@@ -190,7 +202,7 @@ public class TrainBoardingRenderer {
                     }
                     break;
                 }
-                
+
                 String carriageId = orderedCarriageIds.get(i);
                 TrainConfigLoader.TrainTypeData prevTrainData = TrainConfigLoader.getTrainType(carriageId);
                 if (prevTrainData != null) {

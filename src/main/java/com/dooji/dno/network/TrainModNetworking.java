@@ -24,6 +24,7 @@ import com.dooji.dno.network.payloads.BoardingSyncPayload;
 import com.dooji.dno.network.payloads.SyncRoutesPayload;
 import com.dooji.dno.network.payloads.CreateRoutePayload;
 import com.dooji.dno.network.payloads.AssignRoutePayload;
+import com.dooji.dno.network.payloads.GeneratePathPayload;
 import com.dooji.dno.track.Route;
 import com.dooji.dno.track.RouteManager;
 
@@ -54,6 +55,7 @@ public class TrainModNetworking {
         PayloadTypeRegistry.playC2S().register(UpdateTrackSegmentPayload.ID, UpdateTrackSegmentPayload.CODEC);
         PayloadTypeRegistry.playC2S().register(UpdateTrainConfigPayload.ID, UpdateTrainConfigPayload.CODEC);
         PayloadTypeRegistry.playC2S().register(RefreshTrainPathPayload.ID, RefreshTrainPathPayload.CODEC);
+        PayloadTypeRegistry.playC2S().register(GeneratePathPayload.ID, GeneratePathPayload.CODEC);
         PayloadTypeRegistry.playC2S().register(CreateRoutePayload.ID, CreateRoutePayload.CODEC);
         PayloadTypeRegistry.playC2S().register(AssignRoutePayload.ID, AssignRoutePayload.CODEC);
         PayloadTypeRegistry.playC2S().register(RequestBoardingPayload.ID, RequestBoardingPayload.CODEC);
@@ -159,6 +161,16 @@ public class TrainModNetworking {
             }
             
             TrainManager.handleRefreshPathRequest(world, payload.trainId(), payload.sidingStart(), payload.sidingEnd());
+        });
+
+        ServerPlayNetworking.registerGlobalReceiver(GeneratePathPayload.ID, (payload, context) -> {
+            ServerPlayerEntity player = context.player();
+            ServerWorld world = (ServerWorld) player.getWorld();
+            if (!world.canEntityModifyAt(player, payload.sidingStart()) || !world.canEntityModifyAt(player, payload.sidingEnd())) {
+                return;
+            }
+            
+            TrainManager.handleGeneratePathRequest(world, payload.trainId(), payload.routeId(), payload.sidingStart(), payload.sidingEnd());
         });
 
         ServerPlayNetworking.registerGlobalReceiver(RequestBoardingPayload.ID, (payload, context) -> {

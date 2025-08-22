@@ -1,7 +1,6 @@
 package com.dooji.dno.network;
 
 import com.dooji.dno.network.payloads.*;
-import com.dooji.dno.network.payloads.RefreshTrainPathPayload;
 import com.dooji.dno.track.TrackManagerClient;
 import com.dooji.dno.track.TrackSegment;
 import com.dooji.dno.track.Route;
@@ -97,6 +96,10 @@ public class TrainModClientNetworking {
     }
 
     public static void sendToServer(RefreshTrainPathPayload payload) {
+        ClientPlayNetworking.send(payload);
+    }
+
+    public static void sendToServer(GeneratePathPayload payload) {
         ClientPlayNetworking.send(payload);
     }
     

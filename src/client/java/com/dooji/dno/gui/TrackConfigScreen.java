@@ -5,10 +5,14 @@ import com.dooji.dno.network.TrainModClientNetworking;
 import com.dooji.dno.network.payloads.SyncRoutesPayload;
 import com.dooji.dno.network.payloads.UpdateTrackSegmentPayload;
 import com.dooji.dno.network.payloads.UpdateTrainConfigPayload;
+import com.dooji.dno.network.payloads.GeneratePathPayload;
+import com.dooji.dno.network.payloads.RefreshTrainPathPayload;
 import com.dooji.dno.track.TrackRenderer;
 import com.dooji.dno.track.TrackSegment;
+import com.dooji.dno.track.Route;
 import com.dooji.dno.track.RouteManagerClient;
 import com.dooji.dno.track.TrackManagerClient;
+
 import com.dooji.dno.train.TrainClient;
 import com.dooji.dno.train.TrainConfigLoader;
 import com.dooji.dno.train.TrainManagerClient;
@@ -28,7 +32,6 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import com.dooji.dno.track.Route;
 
 /**
  * This class should not be this big. It's a mess. It will be refactored in the future, but for now it'll have to do because
@@ -294,8 +297,12 @@ public class TrackConfigScreen extends Screen {
         this.addDrawableChild(this.routeCreateTabSelectedButton);
 
         this.refreshPathButton = ButtonWidget.builder(Text.translatable("gui.dno.track_config.refresh_path"), button -> {
-            var payload = new com.dooji.dno.network.payloads.RefreshTrainPathPayload(trainId, segment.start(), segment.end());
-            TrainModClientNetworking.sendToServer(payload);
+            if (segment.getRouteId() != null && !segment.getRouteId().trim().isEmpty()) {
+                generateAndSendPath(segment.getRouteId());
+            } else {
+                var payload = new RefreshTrainPathPayload(segment.getTrainId(), segment.start(), segment.end());
+                TrainModClientNetworking.sendToServer(payload);
+            }
         }).dimensions(contentX + 150, contentY, 120, 20).build();
         this.addDrawableChild(this.refreshPathButton);
 
@@ -1299,8 +1306,10 @@ public class TrackConfigScreen extends Screen {
                 int addButtonHeight = BUTTON_HEIGHT;
 
                 if (mouseX >= addButtonX && mouseX <= addButtonX + 25 && mouseY >= addButtonY && mouseY <= addButtonY + addButtonHeight) {
-                    if (currentCarriages == null) currentCarriages = new ArrayList<>();
-                    currentCarriages.add(availableTrainId);
+                    if (canAddCarriage(availableTrainId)) {
+                        if (currentCarriages == null) currentCarriages = new ArrayList<>();
+                        currentCarriages.add(availableTrainId);
+                    }
                 }
 
                 break;
@@ -1730,12 +1739,80 @@ public class TrackConfigScreen extends Screen {
 
         boolean isHovered = isAddButtonHovered(addButtonX, y, addButtonWidth, addButtonHeight, mouseX, mouseY);
 
+        List<String> items = filteredTrainIds != null ? filteredTrainIds : availableTrainIds;
+        int contentY = getGuiY() + CONTENT_PADDING;
+
+        int firstButtonY = contentY + 24 + BUTTON_SPACING + 24 + BUTTON_SPACING;
+        int buttonIndex = (y - firstButtonY + scrollOffset) / (BUTTON_HEIGHT + BUTTON_SPACING);
+        
+        if (buttonIndex >= 0 && buttonIndex < items.size()) {
+            String carriageId = items.get(buttonIndex);
+            boolean canAdd = canAddCarriage(carriageId);
+            
+            if (!canAdd) {
+                context.drawGuiTexture(RenderPipelines.GUI_TEXTURED, BUTTON_DISABLED, addButtonX, y, addButtonWidth, addButtonHeight);
+                context.drawCenteredTextWithShadow(this.textRenderer, Text.literal("+"), addButtonX + addButtonWidth/2, y + addButtonHeight/2 - 4, 0xFF888888);
+                return;
+            }
+        }
+
         context.drawGuiTexture(RenderPipelines.GUI_TEXTURED, isHovered ? BUTTON_HIGHLIGHTED : BUTTON_NORMAL, addButtonX, y, addButtonWidth, addButtonHeight);
         context.drawCenteredTextWithShadow(this.textRenderer, Text.literal("+"), addButtonX + addButtonWidth/2, y + addButtonHeight/2 - 4, 0xFFFFFFFF);
     }
 
     private boolean isAddButtonHovered(int addX, int addY, int width, int height, int mouseX, int mouseY) {
         return mouseX >= addX && mouseX <= addX + width && mouseY >= addY && mouseY <= addY + height;
+    }
+
+    private boolean canAddCarriage(String carriageId) {
+        if (segment == null || !"siding".equals(selectedType)) {
+            return true;
+        }
+
+        double sidingLength = calculateSidingLength();
+        double currentTotalLength = calculateCurrentCarriageLength();
+        double newCarriageLength = getCarriageLength(carriageId);
+
+        return (currentTotalLength + newCarriageLength) <= sidingLength;
+    }
+
+    private double calculateSidingLength() {
+        if (segment == null) return 0.0;
+
+        double dx = segment.end().getX() - segment.start().getX();
+        double dy = segment.end().getY() - segment.start().getY();
+        double dz = segment.end().getZ() - segment.start().getZ();
+        
+        return Math.sqrt(dx * dx + dy * dy + dz * dz);
+    }
+
+    private double calculateCurrentCarriageLength() {
+        if (currentCarriages == null || currentCarriages.isEmpty()) {
+            return 0.0;
+        }
+        
+        double totalLength = 0.0;
+        final double SPACING_BUFFER = 1.0;
+        
+        for (String carriageId : currentCarriages) {
+            double carriageLength = getCarriageLength(carriageId);
+            totalLength += carriageLength + SPACING_BUFFER;
+        }
+
+        if (totalLength > 0) {
+            totalLength -= SPACING_BUFFER;
+        }
+        
+        return totalLength;
+    }
+
+    private double getCarriageLength(String carriageId) {
+        var trainData = TrainConfigLoader.getTrainType(carriageId);
+        if (trainData != null) {
+            return trainData.length();
+        }
+        
+        return 25.0;
     }
 
     private List<String> wrapText(String text, int maxWidth) {
@@ -1805,6 +1882,9 @@ public class TrackConfigScreen extends Screen {
         );
 
         TrainModClientNetworking.sendToServer(trackPayload);
+        
+        String newRouteId = (isRouteTab && selectedRouteId != null && !selectedRouteId.isEmpty()) ? selectedRouteId : segment.getRouteId();
+        
         if (isTrainConfigTab && "siding".equals(selectedType)) {
             String trackSegmentKey = segment.start().getX() + "," + segment.start().getY() + "," + segment.start().getZ() + "->" + segment.end().getX() + "," + segment.end().getY() + "," + segment.end().getZ();
 
@@ -1832,8 +1912,17 @@ public class TrackConfigScreen extends Screen {
                 boundingBoxHeights.add(height);
             }
 
+            String trainId = segment.getTrainId();
+            if (trainId == null || trainId.trim().isEmpty()) {
+                trainId = "temp_" + System.currentTimeMillis();
+            }
+            
             UpdateTrainConfigPayload trainPayload = new UpdateTrainConfigPayload(trainId, currentCarriages, carriageLengths, bogieInsets, trackSegmentKey, boundingBoxWidths, boundingBoxLengths, boundingBoxHeights);
             TrainModClientNetworking.sendToServer(trainPayload);
+        }
+        
+        if (newRouteId != null && !newRouteId.trim().isEmpty()) {
+            generateAndSendPath(newRouteId);
         }
 
         super.close();
@@ -1861,5 +1950,23 @@ public class TrackConfigScreen extends Screen {
 
     private void closeWithoutSaving() {
         super.close();
+    }
+
+    private void generateAndSendPath(String routeId) {
+        if (routeId == null || routeId.trim().isEmpty() || segment == null) {
+            return;
+        }
+        
+        String trainId = segment.getTrainId();
+        if (trainId == null || trainId.trim().isEmpty()) {
+            trainId = "temp_" + System.currentTimeMillis();
+        }
+        
+        if (segment.start() == null || segment.end() == null) {
+            return;
+        }
+        
+        GeneratePathPayload payload = new GeneratePathPayload(trainId, routeId, segment.start(), segment.end());
+        TrainModClientNetworking.sendToServer(payload);
     }
 }

@@ -13,11 +13,11 @@ public record UpdateTrainConfigPayload(String trainId, List<String> carriageIds,
 
     public static final PacketCodec<PacketByteBuf, UpdateTrainConfigPayload> CODEC = PacketCodec.ofStatic(
         (buf, payload) -> {
-            buf.writeString(payload.trainId());
+            buf.writeString(payload.trainId() != null ? payload.trainId() : "");
             buf.writeCollection(payload.carriageIds(), PacketByteBuf::writeString);
             buf.writeCollection(payload.carriageLengths(), PacketByteBuf::writeDouble);
             buf.writeCollection(payload.bogieInsets(), PacketByteBuf::writeDouble);
-            buf.writeString(payload.trackSegmentKey());
+            buf.writeString(payload.trackSegmentKey() != null ? payload.trackSegmentKey() : "");
             buf.writeCollection(payload.boundingBoxWidths(), PacketByteBuf::writeDouble);
             buf.writeCollection(payload.boundingBoxLengths(), PacketByteBuf::writeDouble);
             buf.writeCollection(payload.boundingBoxHeights(), PacketByteBuf::writeDouble);

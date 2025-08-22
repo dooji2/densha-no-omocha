@@ -1,7 +1,8 @@
 package com.dooji.dno.train;
 
-import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 
+import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderContext;
+import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderEvents;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.util.math.MathHelper;
 import net.minecraft.util.math.Vec3d;
@@ -15,13 +16,10 @@ public class TrainBoardingRenderer {
     private static final Map<String, Double> trainPathPrev = new HashMap<>();
 
     public static void init() {
-        ClientTickEvents.END_CLIENT_TICK.register(TrainBoardingRenderer::onClientTick);
+        WorldRenderEvents.AFTER_TRANSLUCENT.register(TrainBoardingRenderer::onRender);
     }
 
-    private static void onClientTick(MinecraftClient client) {
-        World world = client.world;
-        if (world == null) return;
-        
+    private static void onRender(WorldRenderContext context) {
         updateBoardedPlayerPosition();
     }
     
@@ -95,8 +93,7 @@ public class TrainBoardingRenderer {
                     
                     Vec3d playerWorldPos = carriageCenter
                         .add(new Vec3d(Math.cos(carriageYaw), 0, -Math.sin(carriageYaw)).multiply(relativePosition.x))
-                        .add(new Vec3d(0, 1, 0).multiply(relativePosition.y))
-                        .add(new Vec3d(0, 1, 0).multiply(trainData.heightOffset()))
+                        .add(new Vec3d(0, 1, 0).multiply(0.5 + trainData.heightOffset()))
                         .add(new Vec3d(Math.sin(carriageYaw), 0, Math.cos(carriageYaw)).multiply(relativePosition.z));
                     
                     player.setPosition(playerWorldPos);

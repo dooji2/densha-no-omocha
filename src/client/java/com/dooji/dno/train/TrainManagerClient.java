@@ -17,26 +17,6 @@ import java.util.*;
 public class TrainManagerClient {
     private static final Map<String, Map<String, TrainClient>> dimensionKeyToTrains = new HashMap<>();
 
-    public static void updateTrainMovementClient(World world, float frameDelta) {
-        for (Map.Entry<String, Map<String, TrainClient>> entry : dimensionKeyToTrains.entrySet()) {
-            Map<String, TrainClient> worldTrains = entry.getValue();
-            for (TrainClient train : worldTrains.values()) {
-                if (train.getCarriageIds() == null || train.getCarriageIds().isEmpty()) {
-                    continue;
-                }
-                
-                if (train.getContinuousPathPoints() == null || train.getContinuousPathPoints().isEmpty()) {
-                    buildContinuousPathForTrain(world, train);
-                    if (train.getContinuousPathPoints() == null || train.getContinuousPathPoints().isEmpty()) {
-                        continue;
-                    }
-                }
-                
-                train.simulateTrainClient(world, frameDelta);
-            }
-        }
-    }
-
     public static void handleTrainSync(TrainSyncPayload payload) {
         String dimensionKey = payload.dimensionKey();
         Map<String, TrainSyncPayload.TrainData> trainDataMap = payload.trains();

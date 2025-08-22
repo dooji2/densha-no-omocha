@@ -6,7 +6,6 @@ import com.dooji.dno.track.TrackSegment;
 import com.dooji.renderix.ObjModel;
 import com.dooji.renderix.Renderix;
 
-import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderContext;
 import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderEvents;
 
@@ -33,14 +32,6 @@ public class TrainRenderer {
 
     public static void init() {
         WorldRenderEvents.AFTER_TRANSLUCENT.register(TrainRenderer::render);
-        ClientTickEvents.END_CLIENT_TICK.register(TrainRenderer::onClientTick);
-    }
-
-    private static void onClientTick(MinecraftClient client) {
-        World world = client.world;
-        if (world == null) return;
-        
-        TrainManagerClient.updateTrainMovementClient(world, 1.0f);
     }
 
     private static void render(WorldRenderContext context) {
@@ -63,7 +54,7 @@ public class TrainRenderer {
         Renderix.clearInstances();
 
         for (TrainClient train : trains.values()) {
-            renderTrain(context, train, cameraPos, matrices, vertexConsumers);
+            renderTrain(context, train, cameraPos, matrices, vertexConsumers, world);
         }
 
         Renderix.flushInstances(vertexConsumers);
@@ -78,7 +69,7 @@ public class TrainRenderer {
         return smoothed;
     }
 
-    private static void renderTrain(WorldRenderContext context, TrainClient train, Vec3d cameraPos, MatrixStack matrices, VertexConsumerProvider vertexConsumers) {
+    private static void renderTrain(WorldRenderContext context, TrainClient train, Vec3d cameraPos, MatrixStack matrices, VertexConsumerProvider vertexConsumers, World world) {
         TrackSegment siding = findTrackSegmentForTrain(train);
         if (siding == null) {
             return;
@@ -95,8 +86,10 @@ public class TrainRenderer {
             return;
         }
 
-        float frameDelta = MinecraftClient.getInstance().getRenderTickCounter().getDynamicDeltaTicks();
-        double trainPathDistance = smoothPathDistance(train, frameDelta);
+        float ticksElapsed = MinecraftClient.getInstance().getRenderTickCounter().getDynamicDeltaTicks();
+        train.simulateTrainClient(world, ticksElapsed);
+        
+        double trainPathDistance = smoothPathDistance(train, ticksElapsed);
 
         List<String> orderedCarriageIds = new ArrayList<>(carriageIds);
         if (train.isReversed()) {

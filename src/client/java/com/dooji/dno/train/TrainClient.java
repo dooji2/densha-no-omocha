@@ -80,7 +80,7 @@ public class TrainClient {
 
     public void simulateTrainClient(World world, float frameDelta) {
         updateMovementClient(frameDelta, world);
-        updateDoorAnimation(world, frameDelta);
+        updateDoorAnimation(frameDelta);
         long currentTime = System.currentTimeMillis();
 
         if (currentTime - lastSyncAtMillis > SYNC_INTERVAL_MS) {
@@ -88,9 +88,9 @@ public class TrainClient {
         }
     }
 
-    private void updateDoorAnimation(World world, float frameDelta) {
+    private void updateDoorAnimation(float frameDelta) {
         boolean target = movementState == Train.MovementState.DWELLING_AT_PLATFORM && doorTarget;
-        float step = 0.12f;
+        float step = 0.12f * frameDelta;
         
         if (target) {
             doorValue = Math.min(1.0f, doorValue + step);
@@ -545,15 +545,7 @@ public class TrainClient {
         this.doorTarget = doorTarget;
     }
 
-    private void updateMovementClient(float frameDelta, World world) {
-        long currentTime = System.currentTimeMillis();
-        float ticksElapsed = (currentTime - lastUpdateTime) / 50.0f;
-        lastUpdateTime = currentTime;
-
-        updateMovementLogic(ticksElapsed, world);
-    }
-
-    private void updateMovementLogic(float ticksElapsed, World world) {
+    private void updateMovementClient(float ticksElapsed, World world) {
         switch (movementState) {
             case SPAWNED:
                 if (System.currentTimeMillis() - dwellStartTime > 1000) {

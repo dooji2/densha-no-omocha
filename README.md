@@ -11,7 +11,9 @@ An experimental version of an upcoming train mod. Adds toy trains to Minecraft!
 - Custom tracks with OBJ models
 - Different track types like platform and depot tracks
 - Automatic train driving
-- Platform detection on single paths (no route support or complex pathfinding yet)
+- Route creation
+- Some MTR pack support (NTE tracks & trains)
+- Other stuff I may have missed...
 
 All trains and tracks use OBJ models only. By default, Densha no Omocha includes a default toy track and toy train. Currently there are no survival recipes.
 Other features include door animations (no boarding system yet), trains with interior lighting that turn on while the train is on a path, experimental physics-based movement that's not great, custom bogie support, and custom train configurations.
@@ -28,9 +30,7 @@ Boarding should be a thing in a day or a few hours from when this README is crea
 
 ## Currently known bugs:
 - Sloped curves may be the wrong way
-- Slight door animation glitch
 - No minimum radius set
 - Trains start from the center of first node of depot track (and yes, startNode matters for now)
-- Train movement is not smooth enough (I should maybe move the train on client and have it wait at platform until server arrives too, and only then open doors)
 - Node block model is still rendered when it has at least 1 connection
-- Some materials aren't found for some OBJ files ??
+- Some materials aren't found for some OBJ files (unknown cause)

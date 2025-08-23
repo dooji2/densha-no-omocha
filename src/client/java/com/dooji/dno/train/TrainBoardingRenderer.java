@@ -96,7 +96,7 @@ public class TrainBoardingRenderer {
                         .add(new Vec3d(0, 1, 0).multiply(0.5 + trainData.heightOffset()))
                         .add(new Vec3d(Math.sin(carriageYaw), 0, Math.cos(carriageYaw)).multiply(relativePosition.z));
                     
-                    player.setPosition(playerWorldPos);
+                    player.updatePosition(playerWorldPos.getX(), playerWorldPos.getY(), playerWorldPos.getZ());
                     
                     handlePlayerMovementInsideTrain(train, trainData, relativePosition);
                     
@@ -118,6 +118,7 @@ public class TrainBoardingRenderer {
         if (player == null) return;
         
         player.setVelocity(0, 0, 0);
+        player.setMovementSpeed(0);
         
         Vec2f input = player.input.getMovementInput();
         if (input.lengthSquared() > 0) {

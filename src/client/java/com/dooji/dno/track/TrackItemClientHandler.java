@@ -51,22 +51,10 @@ public class TrackItemClientHandler {
                 return ActionResult.SUCCESS;
             }
 
-            BlockPos startPosition;
-            BlockPos endPosition;
-            Direction startDirection;
-            Direction endDirection;
-
-            if (shouldUseOriginalOrder(selectedStartNodePosition, startNodeDirection, targetPosition, endNodeDirection)) {
-                startPosition = selectedStartNodePosition;
-                endPosition = targetPosition;
-                startDirection = startNodeDirection;
-                endDirection = endNodeDirection;
-            } else {
-                startPosition = targetPosition;
-                endPosition = selectedStartNodePosition;
-                startDirection = endNodeDirection;
-                endDirection = startNodeDirection;
-            }
+            BlockPos startPosition = selectedStartNodePosition;
+            BlockPos endPosition = targetPosition;
+            Direction startDirection = startNodeDirection;
+            Direction endDirection = endNodeDirection;
 
             PlaceTrackSegmentPayload payload = new PlaceTrackSegmentPayload(startPosition, endPosition, startDirection, endDirection);
             ClientPlayNetworking.send(payload);
@@ -89,13 +77,5 @@ public class TrackItemClientHandler {
     private static Direction getNodeDirection(World world, BlockPos position) {
         if (world.getBlockEntity(position) instanceof TrackNodeBlockEntity entity) return entity.getDirection();
         return null;
-    }
-
-    private static boolean shouldUseOriginalOrder(BlockPos firstPos, Direction firstDir, BlockPos secondPos, Direction secondDir) {
-        if (firstPos.getY() != secondPos.getY()) {
-            return firstPos.getY() <= secondPos.getY();
-        }
-        
-        return true;
     }
 }

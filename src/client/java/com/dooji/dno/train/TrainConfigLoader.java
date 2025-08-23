@@ -42,7 +42,9 @@ public class TrainConfigLoader {
         DoorConfig doors,
         BogieConfig bogies,
         double width,
-        double height
+        double height,
+        String interiorPart,
+        String exteriorPart
     ) {}
 
     public record DoorPart(
@@ -178,13 +180,18 @@ public class TrainConfigLoader {
                     BogieConfig bogies = parseBogieConfig(trainData);
                     double width = trainData.has("width") ? trainData.get("width").getAsDouble() : 1.0;
                     double height = trainData.has("height") ? trainData.get("height").getAsDouble() : 1.0;
-                    TrainTypeData trainTypeData = new TrainTypeData(name, length, bogieInset, icon, description, flipV, isReversed, heightOffset, model, doors, bogies, width, height);
+                    String interiorPart = trainData.has("interiorPart") ? trainData.get("interiorPart").getAsString() : "interior";
+                    String exteriorPart = trainData.has("exteriorPart") ? trainData.get("exteriorPart").getAsString() : "exterior";
+                    TrainTypeData trainTypeData = new TrainTypeData(name, length, bogieInset, icon, description, flipV, isReversed, heightOffset, model, doors, bogies, width, height, interiorPart, exteriorPart);
                     
                     TRAIN_TYPES.put(trainId, trainTypeData);
                 } catch (Exception e) {
                     TrainModClient.LOGGER.error("Failed to parse train data for: {}", trainId, e);
                 }
             }
+
+            TrainCompatibilityLoader.loadMTRTrains(manager);
+            TRAIN_TYPES.putAll(TrainCompatibilityLoader.getMTRTrains());
         } catch (Exception e) {
             TrainModClient.LOGGER.error("Failed to load train types from resources", e);
         }
@@ -200,6 +207,7 @@ public class TrainConfigLoader {
 
     public static void clearCaches() {
         TRAIN_TYPES.clear();
+        TrainCompatibilityLoader.clearCaches();
     }
 
     private static DoorConfig parseDoorConfig(JsonObject trainData) {

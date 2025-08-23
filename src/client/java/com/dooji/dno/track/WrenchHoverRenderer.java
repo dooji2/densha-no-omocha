@@ -547,19 +547,19 @@ public class WrenchHoverRenderer {
         String modelId = segment.getModelId();
         if (modelId == null) return null;
         
-        Map<String, TrackRenderer.TrackTypeData> trackTypes = TrackRenderer.getTrackTypes();
+        Map<String, TrackConfigLoader.TrackTypeData> trackTypes = TrackConfigLoader.getAllTrackTypes();
         if (trackTypes == null || trackTypes.isEmpty()) {
-            TrackRenderer.loadTrackTypes(MinecraftClient.getInstance().getResourceManager());
-            trackTypes = TrackRenderer.getTrackTypes();
+            TrackConfigLoader.loadTrackTypes(MinecraftClient.getInstance().getResourceManager());
+            trackTypes = TrackConfigLoader.getAllTrackTypes();
         }
         
-        TrackRenderer.TrackTypeData trackType = trackTypes.get(modelId);
+        TrackConfigLoader.TrackTypeData trackType = trackTypes.get(modelId);
         if (trackType == null) return null;
         
         return getColorForTrackType(trackType);
     }
 
-    private static Color getColorForTrackType(TrackRenderer.TrackTypeData trackType) {
+    private static Color getColorForTrackType(TrackConfigLoader.TrackTypeData trackType) {
         String name = trackType.name().toLowerCase();
         if (name.contains("red")) return new Color(255, 0, 0);
         if (name.contains("blue")) return new Color(0, 0, 255);

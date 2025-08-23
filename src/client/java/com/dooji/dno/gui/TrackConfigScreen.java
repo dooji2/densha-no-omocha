@@ -7,11 +7,11 @@ import com.dooji.dno.network.payloads.UpdateTrackSegmentPayload;
 import com.dooji.dno.network.payloads.UpdateTrainConfigPayload;
 import com.dooji.dno.network.payloads.GeneratePathPayload;
 import com.dooji.dno.network.payloads.RefreshTrainPathPayload;
-import com.dooji.dno.track.TrackRenderer;
 import com.dooji.dno.track.TrackSegment;
 import com.dooji.dno.track.Route;
 import com.dooji.dno.track.RouteManagerClient;
 import com.dooji.dno.track.TrackManagerClient;
+import com.dooji.dno.track.TrackConfigLoader;
 
 import com.dooji.dno.train.TrainClient;
 import com.dooji.dno.train.TrainConfigLoader;
@@ -374,10 +374,10 @@ public class TrackConfigScreen extends Screen {
     private void loadAvailableOptions() {
         availableTrackIds = new ArrayList<>();
         
-        Map<String, TrackRenderer.TrackTypeData> trackTypes = TrackRenderer.getTrackTypes();
+        Map<String, TrackConfigLoader.TrackTypeData> trackTypes = TrackConfigLoader.getAllTrackTypes();
         if (trackTypes == null || trackTypes.isEmpty()) {
-            TrackRenderer.loadTrackTypes(MinecraftClient.getInstance().getResourceManager());
-            trackTypes = TrackRenderer.getTrackTypes();
+            TrackConfigLoader.loadTrackTypes(MinecraftClient.getInstance().getResourceManager());
+            trackTypes = TrackConfigLoader.getAllTrackTypes();
         }
         
         if (trackTypes != null && !trackTypes.isEmpty()) {
@@ -788,11 +788,11 @@ public class TrackConfigScreen extends Screen {
         List<String> items = filteredTrackIds != null ? filteredTrackIds : availableTrackIds;
         for (int i = 0; i < items.size(); i++) {
             String trackId = items.get(i);
-            Map<String, TrackRenderer.TrackTypeData> trackTypes = TrackRenderer.getTrackTypes();
+            Map<String, TrackConfigLoader.TrackTypeData> trackTypes = TrackConfigLoader.getAllTrackTypes();
 
             boolean isTitleOnly = false;
             if (trackTypes != null) {
-                TrackRenderer.TrackTypeData trackData = trackTypes.get(trackId);
+                TrackConfigLoader.TrackTypeData trackData = trackTypes.get(trackId);
                 if (trackData != null) {
                     boolean hasIcon = trackData.icon() != null;
                     boolean hasDesc = trackData.description() != null && !trackData.description().isEmpty();
@@ -1196,11 +1196,11 @@ public class TrackConfigScreen extends Screen {
         List<String> items = filteredTrackIds != null ? filteredTrackIds : availableTrackIds;
         for (int i = 0; i < items.size(); i++) {
             String trackId = items.get(i);
-            Map<String, TrackRenderer.TrackTypeData> trackTypes = TrackRenderer.getTrackTypes();
+            Map<String, TrackConfigLoader.TrackTypeData> trackTypes = TrackConfigLoader.getAllTrackTypes();
             boolean isTitleOnly = false;
 
             if (trackTypes != null) {
-                TrackRenderer.TrackTypeData trackData = trackTypes.get(trackId);
+                TrackConfigLoader.TrackTypeData trackData = trackTypes.get(trackId);
                 if (trackData != null) {
                     boolean hasIcon = trackData.icon() != null;
                     boolean hasDesc = trackData.description() != null && !trackData.description().isEmpty();
@@ -1473,11 +1473,11 @@ public class TrackConfigScreen extends Screen {
             int totalHeight = 0;
             if (items != null) {
                 for (String trackId : items) {
-                    Map<String, TrackRenderer.TrackTypeData> trackTypes = TrackRenderer.getTrackTypes();
+                    Map<String, TrackConfigLoader.TrackTypeData> trackTypes = TrackConfigLoader.getAllTrackTypes();
                     boolean isTitleOnly = false;
 
                     if (trackTypes != null) {
-                        TrackRenderer.TrackTypeData trackData = trackTypes.get(trackId);
+                        TrackConfigLoader.TrackTypeData trackData = trackTypes.get(trackId);
                         if (trackData != null) {
                             boolean hasIcon = trackData.icon() != null;
                             boolean hasDesc = trackData.description() != null && !trackData.description().isEmpty();
@@ -1552,10 +1552,10 @@ public class TrackConfigScreen extends Screen {
         } else {
             List<String> items = filteredTrackIds != null ? filteredTrackIds : availableTrackIds;
             for (int i = 0; i < items.size(); i++) {
-                Map<String, TrackRenderer.TrackTypeData> trackTypes = TrackRenderer.getTrackTypes();
+                Map<String, TrackConfigLoader.TrackTypeData> trackTypes = TrackConfigLoader.getAllTrackTypes();
                 boolean isTitleOnly = false;
                 if (trackTypes != null) {
-                    TrackRenderer.TrackTypeData trackData = trackTypes.get(items.get(i));
+                    TrackConfigLoader.TrackTypeData trackData = trackTypes.get(items.get(i));
                     if (trackData != null) {
                         boolean hasIcon = trackData.icon() != null;
                         boolean hasDesc = trackData.description() != null && !trackData.description().isEmpty();
@@ -1626,13 +1626,13 @@ public class TrackConfigScreen extends Screen {
         }
 
         String trackId = items.get(buttonIndex);
-        Map<String, TrackRenderer.TrackTypeData> trackTypes = TrackRenderer.getTrackTypes();
+        Map<String, TrackConfigLoader.TrackTypeData> trackTypes = TrackConfigLoader.getAllTrackTypes();
         if (trackTypes == null) {
             context.drawTextWithShadow(this.textRenderer, Text.literal(trackId), x + 6, y + buttonHeight / 2 - 4, 0xFFFFFFFF);
             return;
         }
 
-        TrackRenderer.TrackTypeData trackData = trackTypes.get(trackId);
+        TrackConfigLoader.TrackTypeData trackData = trackTypes.get(trackId);
         if (trackData == null) {
             context.drawTextWithShadow(this.textRenderer, Text.literal(trackId), x + 6, y + buttonHeight / 2 - 4, 0xFFFFFFFF);
             return;

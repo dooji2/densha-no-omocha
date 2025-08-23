@@ -5,10 +5,6 @@ import com.dooji.dno.TrainModClient;
 import com.dooji.renderix.ObjModel;
 import com.dooji.renderix.Renderix;
 
-import com.google.gson.Gson;
-import com.google.gson.JsonElement;
-import com.google.gson.JsonObject;
-
 import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderContext;
 import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderEvents;
 
@@ -16,9 +12,7 @@ import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.render.OverlayTexture;
 import net.minecraft.client.render.VertexConsumerProvider;
 import net.minecraft.client.util.math.MatrixStack;
-import net.minecraft.resource.Resource;
 import net.minecraft.resource.ResourceManager;
-import net.minecraft.util.Identifier;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.Direction;
 import net.minecraft.util.math.RotationAxis;
@@ -26,8 +20,6 @@ import net.minecraft.util.math.Vec3d;
 import net.minecraft.world.World;
 import net.minecraft.world.LightType;
 
-import java.io.IOException;
-import java.io.InputStreamReader;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -36,9 +28,8 @@ import java.util.Map;
 import org.joml.Matrix4f;
 
 public class TrackRenderer {
+    private static final Map<String, TrackConfigLoader.TrackTypeData> trackTypes = new HashMap<>();
     private static final Map<String, ObjModel> modelCache = new HashMap<>();
-    private static final Map<String, TrackTypeData> trackTypes = new HashMap<>();
-    private static final Gson gson = new Gson();
 
     public static void init() {
         WorldRenderEvents.BEFORE_ENTITIES.register(TrackRenderer::renderTracks);
@@ -70,48 +61,14 @@ public class TrackRenderer {
         Renderix.flushInstances(vertexConsumers);
     }
 
-    public static void loadTrackTypes(ResourceManager resourceManager) {
+    private static void loadTrackTypes(ResourceManager resourceManager) {
         trackTypes.clear();
-        JsonObject combined = new JsonObject();
-        
-        try {
-            List<Resource> resources = resourceManager.getAllResources(Identifier.of("densha-no-omocha", "rails.json"));
-            for (Resource resource : resources) {
-                try (InputStreamReader reader = new InputStreamReader(resource.getInputStream())) {
-                    JsonObject json = gson.fromJson(reader, JsonObject.class);
-
-                    for (Map.Entry<String, JsonElement> entry : json.entrySet()) {
-                        String trackId = entry.getKey();
-                        JsonObject trackData = entry.getValue().getAsJsonObject();
-                        combined.add(trackId, trackData);
-                    }
-                }
-            }
-        } catch (IOException e) {
-            TrainModClient.LOGGER.error("Failed to load rails.json resources: {}", e.getMessage());
-            e.printStackTrace();
-        }
-
-        for (Map.Entry<String, JsonElement> entry : combined.entrySet()) {
-            String trackId = entry.getKey();
-            JsonObject trackData = entry.getValue().getAsJsonObject();
-
-            String namespacedId = "densha-no-omocha:" + trackId;
-            String name = trackData.has("name") ? trackData.get("name").getAsString() : trackId;
-            String model = trackData.has("model") ? trackData.get("model").getAsString() : null;
-
-            double repeatInterval = trackData.has("repeatInterval") ? trackData.get("repeatInterval").getAsDouble() : 1.0;
-            boolean flipV = trackData.has("flipV") && trackData.get("flipV").getAsBoolean();
-
-            String icon = trackData.has("icon") ? trackData.get("icon").getAsString() : null;
-            String description = trackData.has("description") ? trackData.get("description").getAsString() : null;
-
-            trackTypes.put(namespacedId, new TrackTypeData(name, model, repeatInterval, flipV, icon, description));
-        }
+        TrackConfigLoader.loadTrackTypes(resourceManager);
+        trackTypes.putAll(TrackConfigLoader.getAllTrackTypes());
     }
 
     private static void renderTrackSegment(TrackSegment segment, MatrixStack matrices, VertexConsumerProvider vertexConsumers, Vec3d cameraPosition) {
-        TrackTypeData trackType = trackTypes.get(segment.getModelId());
+        TrackConfigLoader.TrackTypeData trackType = trackTypes.get(segment.getModelId());
         if (trackType == null) return;
 
         if (trackType.model() == null || trackType.model().isEmpty()) return;
@@ -121,7 +78,7 @@ public class TrackRenderer {
         renderSimpleTrack(segment, model, matrices, vertexConsumers, cameraPosition, trackType);
     }
 
-    private static void renderSimpleTrack(TrackSegment segment, ObjModel model, MatrixStack matrices, VertexConsumerProvider vertexConsumers, Vec3d cameraPosition, TrackTypeData trackType) {
+    private static void renderSimpleTrack(TrackSegment segment, ObjModel model, MatrixStack matrices, VertexConsumerProvider vertexConsumers, Vec3d cameraPosition, TrackConfigLoader.TrackTypeData trackType) {
         MinecraftClient client = MinecraftClient.getInstance();
         World world = client.world;
 
@@ -219,7 +176,7 @@ public class TrackRenderer {
         }
     }
 
-    private static void renderCurvedTrack(TrackSegment segment, ObjModel model, MatrixStack matrices, VertexConsumerProvider vertexConsumers, Vec3d cameraPosition, TrackTypeData trackType, double startAngle, double endAngle, double angleDiff) {
+    private static void renderCurvedTrack(TrackSegment segment, ObjModel model, MatrixStack matrices, VertexConsumerProvider vertexConsumers, Vec3d cameraPosition, TrackConfigLoader.TrackTypeData trackType, double startAngle, double endAngle, double angleDiff) {
         MinecraftClient client = MinecraftClient.getInstance();
         World world = client.world;
         if (world == null) return;
@@ -339,9 +296,15 @@ public class TrackRenderer {
         if (modelCache.containsKey(cacheKey)) return modelCache.get(cacheKey);
         
         try {
+            String namespace = TrainMod.MOD_ID;
             String path = modelPath;
-            if (modelPath.contains(":")) path = modelPath.substring(modelPath.indexOf(":") + 1);
-            ObjModel model = Renderix.loadModel(TrainMod.MOD_ID, path, flipV);
+            if (modelPath.contains(":")) {
+                String[] parts = modelPath.split(":", 2);
+                namespace = parts[0];
+                path = parts[1];
+            }
+            
+            ObjModel model = Renderix.loadModel(namespace, path, flipV);
 
             modelCache.put(cacheKey, model);
             return model;
@@ -351,8 +314,7 @@ public class TrackRenderer {
         }
     }
 
-    public record TrackTypeData(String name, String model, double repeatInterval, boolean flipV, String icon, String description) {}
-    public static Map<String, TrackTypeData> getTrackTypes() {
+    public static Map<String, TrackConfigLoader.TrackTypeData> getTrackTypes() {
         return trackTypes;
     }
 }

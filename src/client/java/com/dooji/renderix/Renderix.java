@@ -65,13 +65,15 @@ public class Renderix {
         final int overlay;
         final int color;
         final boolean interiorLit;
+        final String interiorPart;
 
-        InstanceData(Matrix4f transform, int light, int overlay, int color, boolean interiorLit) {
+        InstanceData(Matrix4f transform, int light, int overlay, int color, boolean interiorLit, String interiorPart) {
             this.transform = new Matrix4f(transform);
             this.light = light;
             this.overlay = overlay;
             this.color = color;
             this.interiorLit = interiorLit;
+            this.interiorPart = interiorPart;
         }
     }
 
@@ -299,8 +301,12 @@ public class Renderix {
     }
 
     public static void enqueueInstance(ObjModel model, Matrix4f transform, int light, int overlay, int color, boolean interiorLit) {
+        enqueueInstance(model, transform, light, overlay, color, interiorLit, "interior");
+    }
+
+    public static void enqueueInstance(ObjModel model, Matrix4f transform, int light, int overlay, int color, boolean interiorLit, String interiorPart) {
         if (model == null || transform == null) return;
-        instanceBatches.computeIfAbsent(model, k -> new ArrayList<>()).add(new InstanceData(transform, light, overlay, color, interiorLit));
+        instanceBatches.computeIfAbsent(model, k -> new ArrayList<>()).add(new InstanceData(transform, light, overlay, color, interiorLit, interiorPart));
     }
 
     public static void flushInstances(VertexConsumerProvider consumers) {
@@ -408,7 +414,6 @@ public class Renderix {
                 boolean translucent = mat != null && mat.opacity < 0.999f;
                 RenderLayer layer = translucent ? RenderLayer.getEntityTranslucent(texture) : RenderLayer.getEntityCutout(texture);
                 VertexConsumer vc = consumers.getBuffer(layer);
-                ObjModel.RenderData data = model.getMeshes().get(meshKey);
 
                 int r = (instance.color >> 16) & 0xFF;
                 int g = (instance.color >> 8) & 0xFF;
@@ -426,11 +431,11 @@ public class Renderix {
                 }
 
                 int meshLight = instance.light;
-                if (instance.interiorLit && meshKey.toLowerCase().contains("int")) {
+                if (instance.interiorLit && meshKey.toLowerCase().contains(instance.interiorPart.toLowerCase())) {
                     meshLight = 0x00F000F0;
                 }
                 
-                renderMeshWithColor(data, vc, instance.transform, meshLight, instance.overlay, r, g, b, a);
+                renderMeshWithColor(model.getMeshes().get(meshKey), vc, instance.transform, meshLight, instance.overlay, r, g, b, a);
             }
         }
     }
@@ -474,6 +479,10 @@ public class Renderix {
     }
 
     public static void renderModelWithInteriorLighting(ObjModel model, MatrixStack matrices, VertexConsumerProvider consumers, int light, int overlay, boolean interiorLit) {
+        renderModelWithInteriorLighting(model, matrices, consumers, light, overlay, interiorLit, "interior");
+    }
+
+    public static void renderModelWithInteriorLighting(ObjModel model, MatrixStack matrices, VertexConsumerProvider consumers, int light, int overlay, boolean interiorLit, String interiorPart) {
         if (model == null) return;
 
         matrices.push();
@@ -493,7 +502,7 @@ public class Renderix {
             
             int meshLight = light;
 
-            if (interiorLit && meshKey.toLowerCase().contains("int")) {
+            if (interiorLit && meshKey.toLowerCase().contains(interiorPart.toLowerCase())) {
                 meshLight = 0x00F000F0;
             }
 
@@ -519,6 +528,10 @@ public class Renderix {
     }
 
     public static void renderModelWithDoorAnimation(ObjModel model, MatrixStack matrices, VertexConsumerProvider consumers, int light, int overlay, double doorOffset, String slideAxis, List<TrainConfigLoader.DoorPart> parts, String instanceKey, boolean interiorLit) {
+        renderModelWithDoorAnimation(model, matrices, consumers, light, overlay, doorOffset, slideAxis, parts, instanceKey, interiorLit, "interior");
+    }
+
+    public static void renderModelWithDoorAnimation(ObjModel model, MatrixStack matrices, VertexConsumerProvider consumers, int light, int overlay, double doorOffset, String slideAxis, List<TrainConfigLoader.DoorPart> parts, String instanceKey, boolean interiorLit, String interiorPart) {
         if (model == null) return;
 
         matrices.push();
@@ -531,7 +544,7 @@ public class Renderix {
                 
                 Matrix4f matrix = matrices.peek().getPositionMatrix();
                 int meshLight = light;
-                if (interiorLit && meshKey.toLowerCase().contains("int")) {
+                if (interiorLit && meshKey.toLowerCase().contains(interiorPart.toLowerCase())) {
                     meshLight = 0x00F000F0;
                 }
                 
@@ -540,7 +553,7 @@ public class Renderix {
             } else {
                 Matrix4f matrix = matrices.peek().getPositionMatrix();
                 int meshLight = light;
-                if (interiorLit && meshKey.toLowerCase().contains("int")) {
+                if (interiorLit && meshKey.toLowerCase().contains(interiorPart.toLowerCase())) {
                     meshLight = 0x00F000F0;
                 }
 

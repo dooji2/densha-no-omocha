@@ -290,9 +290,9 @@ public class TrainRenderer {
                     double doorWidth = doors.calculateDoorWidth(trainData.model());
                     double doorOffset = doorWidth * doorValue;
                     
-                    Renderix.renderModelWithDoorAnimation(model, matrices, vertexConsumers, packedLight, packedOverlay, doorOffset, doors.slideDirection(), doors.doorParts(), instanceKey, interiorLit);
+                    Renderix.renderModelWithDoorAnimation(model, matrices, vertexConsumers, packedLight, packedOverlay, doorOffset, doors.slideDirection(), doors.doorParts(), instanceKey, interiorLit, trainData.interiorPart());
                 } else {
-                    Renderix.enqueueInstance(model, transform, packedLight, packedOverlay, 0xFFFFFFFF, interiorLit);
+                    Renderix.enqueueInstance(model, transform, packedLight, packedOverlay, 0xFFFFFFFF, interiorLit, trainData.interiorPart());
                 }
             }
 
@@ -395,7 +395,7 @@ public class TrainRenderer {
                 if (wheels != null && !wheels.isEmpty()) {
                     renderBogieWithWheels(model, train, trainPathDistance, offset, matrices, vertexConsumers, packedLight, packedOverlay, wheels);
                 } else {
-                    Renderix.enqueueInstance(model, transform, packedLight, packedOverlay, 0xFFFFFFFF, false);
+                    Renderix.enqueueInstance(model, transform, packedLight, packedOverlay, 0xFFFFFFFF, false, "interior");
                 }
             }
 
@@ -449,7 +449,7 @@ public class TrainRenderer {
         } catch (Exception e) {
             TrainModClient.LOGGER.error("Failed to render bogie with wheels", e);
             Matrix4f transform = matrices.peek().getPositionMatrix();
-            Renderix.enqueueInstance(model, transform, packedLight, packedOverlay);
+            Renderix.enqueueInstance(model, transform, packedLight, packedOverlay, 0xFFFFFFFF, false, "interior");
         }
     }
 

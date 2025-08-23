@@ -34,6 +34,7 @@ import org.slf4j.LoggerFactory;
 
 import com.dooji.dno.track.TrackManagerClient;
 import com.dooji.dno.track.RouteManagerClient;
+import com.dooji.dno.track.TrackConfigLoader;
 import com.dooji.dno.train.TrainManagerClient;
 
 public class TrainModClient implements ClientModInitializer {
@@ -76,7 +77,7 @@ public class TrainModClient implements ClientModInitializer {
 			@Override
 			public void reload(ResourceManager manager) {
 				TrackRenderer.clearCaches();
-				TrackRenderer.loadTrackTypes(manager);
+				TrackConfigLoader.loadTrackTypes(manager);
 			}
 		});
 

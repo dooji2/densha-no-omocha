@@ -188,10 +188,15 @@ public class Renderix {
         return loadModel(modId, objPath, null, false);
     }
 
-    public static ObjModel loadModel(String modId, String objPath, boolean flipV) {
+        public static ObjModel loadModel(String modId, String objPath, boolean flipV) {
         return loadModel(modId, objPath, null, flipV);
     }
-
+    
+    public static ObjModel getLoadedModel(String modId, String objPath) {
+        String key = modId + ":" + objPath + ":";
+        return modelCache.get(key);
+    }
+    
     private static void prepareInstancedRendering(ObjModel model) {
         try {
             Map<String, MeshData> meshes = new HashMap<>();

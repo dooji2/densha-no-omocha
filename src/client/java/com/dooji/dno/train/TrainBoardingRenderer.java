@@ -3,14 +3,16 @@ package com.dooji.dno.train;
 
 import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderContext;
 import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderEvents;
+
 import net.minecraft.client.MinecraftClient;
+import net.minecraft.text.Text;
 import net.minecraft.util.math.MathHelper;
 import net.minecraft.util.math.Vec3d;
 import net.minecraft.world.World;
-
-import java.util.*;
 import net.minecraft.client.network.ClientPlayerEntity;
 import net.minecraft.util.math.Vec2f;
+
+import java.util.*;
 
 public class TrainBoardingRenderer {
     private static final Map<String, Double> trainPathPrev = new HashMap<>();
@@ -28,10 +30,10 @@ public class TrainBoardingRenderer {
         if (player == null) return;
         
         String boardedTrainId = TrainBoardingManager.getCurrentBoardedTrainId();
-        int boardedCarriageIndex = TrainBoardingManager.getCurrentBoardedCarriageIndex();
+        String boardedCarriageId = TrainBoardingManager.getCurrentBoardedCarriageId();
         Vec3d relativePosition = TrainBoardingManager.getCurrentRelativePosition();
         
-        if (boardedTrainId == null || boardedCarriageIndex == -1 || relativePosition == null) {
+        if (boardedTrainId == null || boardedCarriageId == null || relativePosition == null) {
             return;
         }
         
@@ -53,8 +55,8 @@ public class TrainBoardingRenderer {
         double currentOffset = 0.0;
         
         for (int i = 0; i < orderedCarriageIds.size(); i++) {
-            if (i == boardedCarriageIndex) {
-                String carriageId = orderedCarriageIds.get(i);
+            String carriageId = orderedCarriageIds.get(i);
+            if (carriageId.equals(boardedCarriageId)) {
                 TrainConfigLoader.TrainTypeData trainData = TrainConfigLoader.getTrainType(carriageId);
                 
                 if (trainData == null) continue;
@@ -91,13 +93,18 @@ public class TrainBoardingRenderer {
                         carriagePitch = -carriagePitch;
                     }
                     
+                    Vec3d rotatedRelativePos = new Vec3d(relativePosition.x, relativePosition.y, relativePosition.z);
+
+                    rotatedRelativePos = rotatedRelativePos.rotateX((float) -carriagePitch);
+                    rotatedRelativePos = rotatedRelativePos.rotateY((float) carriageYaw);
+
                     Vec3d playerWorldPos = carriageCenter
-                        .add(new Vec3d(Math.cos(carriageYaw), 0, -Math.sin(carriageYaw)).multiply(relativePosition.x))
-                        .add(new Vec3d(0, 1, 0).multiply(0.5 + trainData.heightOffset()))
-                        .add(new Vec3d(Math.sin(carriageYaw), 0, Math.cos(carriageYaw)).multiply(relativePosition.z));
+                        .add(rotatedRelativePos)
+                        .add(0, 0.5 + trainData.heightOffset(), 0);
                     
                     player.updatePosition(playerWorldPos.getX(), playerWorldPos.getY(), playerWorldPos.getZ());
                     
+                    showDismountMessage();
                     handlePlayerMovementInsideTrain(train, trainData, relativePosition);
                     
                     TrainBoardingManager.sendPositionUpdateToServer();
@@ -105,7 +112,6 @@ public class TrainBoardingRenderer {
                 break;
             }
             
-            String carriageId = orderedCarriageIds.get(i);
             TrainConfigLoader.TrainTypeData trainData = TrainConfigLoader.getTrainType(carriageId);
             if (trainData != null) {
                 currentOffset += trainData.length() + 1.0;
@@ -133,8 +139,8 @@ public class TrainBoardingRenderer {
 
             double currentOffset = 0.0;
             for (int i = 0; i < orderedCarriageIds.size(); i++) {
-                if (i == TrainBoardingManager.getCurrentBoardedCarriageIndex()) {
-                    String carriageId = orderedCarriageIds.get(i);
+                String carriageId = orderedCarriageIds.get(i);
+                if (carriageId.equals(TrainBoardingManager.getCurrentBoardedCarriageId())) {
                     TrainConfigLoader.TrainTypeData currentTrainData = TrainConfigLoader.getTrainType(carriageId);
 
                     if (currentTrainData != null) {
@@ -201,7 +207,6 @@ public class TrainBoardingRenderer {
                     break;
                 }
 
-                String carriageId = orderedCarriageIds.get(i);
                 TrainConfigLoader.TrainTypeData prevTrainData = TrainConfigLoader.getTrainType(carriageId);
                 if (prevTrainData != null) {
                     currentOffset += prevTrainData.length() + 1.0;
@@ -212,5 +217,12 @@ public class TrainBoardingRenderer {
 
     public static void clearCaches() {
         trainPathPrev.clear();
+    }
+    
+    private static void showDismountMessage() {
+        MinecraftClient client = MinecraftClient.getInstance();
+        if (client.player != null) {
+            client.player.sendMessage(Text.translatable("message.dno.press_shift_to_dismount"), true);
+        }
     }
 }

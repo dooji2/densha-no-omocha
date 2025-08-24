@@ -43,11 +43,13 @@ public class ObjModel {
     private final Vector3f boundingBoxMin;
     private final Vector3f boundingBoxMax;
     private final boolean flipV;
+    private final Obj rawObj;
     
     public ObjModel(Obj obj, Map<String, Mtl> mtlMap, String modId, String objPath, boolean flipV) {
         this.meshes = new HashMap<>();
         this.materials = new HashMap<>();
         this.flipV = flipV;
+        this.rawObj = obj;
 
         String basePath = extractBasePath(objPath);
 
@@ -277,5 +279,9 @@ public class ObjModel {
 
     public Vector3f getBoundingBoxMax() {
         return boundingBoxMax;
+    }
+    
+    public Obj getRawObj() {
+        return rawObj;
     }
 }

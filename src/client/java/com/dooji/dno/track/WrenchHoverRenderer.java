@@ -2,6 +2,10 @@ package com.dooji.dno.track;
 
 import com.dooji.dno.gui.TrackConfigScreen;
 import com.dooji.dno.registry.TrainModItems;
+import com.dooji.dno.train.TrainDoorDetector;
+import com.dooji.dno.train.TrainManagerClient;
+import com.dooji.dno.train.TrainClient;
+import com.dooji.dno.train.TrainConfigLoader;
 
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderContext;
@@ -21,6 +25,7 @@ import org.lwjgl.glfw.GLFW;
 
 import java.awt.*;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
@@ -287,6 +292,8 @@ public class WrenchHoverRenderer {
         if (hoveredSegment != null) {
             renderHoverHighlight(context, hoveredSegment);
         }
+        
+        renderTrainDoorBoundingBoxes(context);
     }
 
     private static boolean isHoldingVisualizer(ClientPlayerEntity player) {
@@ -576,5 +583,115 @@ public class WrenchHoverRenderer {
         if (name.contains("white")) return new Color(255, 255, 255);
         
         return new Color(100, 100, 255);
+    }
+    
+    private static void renderTrainDoorBoundingBoxes(WorldRenderContext context) {
+        ClientPlayerEntity player = MinecraftClient.getInstance().player;
+        if (player == null) return;
+        
+        World world = player.getWorld();
+        Map<String, TrainClient> trains = TrainManagerClient.getTrainsFor(world);
+        if (trains == null || trains.isEmpty()) return;
+        
+        Vec3d cameraPos = context.camera().getPos();
+        
+        for (TrainClient train : trains.values()) {
+            if (train.getBoundingBoxWidths() == null || train.getBoundingBoxLengths() == null || train.getBoundingBoxHeights() == null) {
+                continue;
+            }
+            
+            List<Vec3d> pathPoints = train.getContinuousPathPoints();
+            if (pathPoints == null || pathPoints.isEmpty()) {
+                continue;
+            }
+            
+            double trainPathDistance = train.getCurrentPathDistance();
+            List<String> carriageIds = train.getCarriageIds();
+            List<Double> carriageLengths = train.getBoundingBoxLengths();
+            List<Double> carriageWidths = train.getBoundingBoxWidths();
+            List<Double> carriageHeights = train.getBoundingBoxHeights();
+            
+            List<String> orderedCarriageIds = new ArrayList<>(carriageIds);
+            if (train.isReversed()) {
+                Collections.reverse(orderedCarriageIds);
+            }
+            
+            double currentOffset = 0.0;
+            for (int i = 0; i < orderedCarriageIds.size(); i++) {
+                String carriageId = orderedCarriageIds.get(i);
+                int originalIndex = train.isReversed() ? (carriageIds.size() - 1 - i) : i;
+                
+                if (originalIndex >= carriageLengths.size() || originalIndex >= carriageWidths.size() || originalIndex >= carriageHeights.size()) {
+                    continue;
+                }
+                
+                double carriageLength = carriageLengths.get(originalIndex);
+                double carriageWidth = carriageWidths.get(originalIndex);
+                double carriageHeight = carriageHeights.get(originalIndex);
+                
+                if (carriageLength <= 0 || carriageWidth <= 0 || carriageHeight <= 0) {
+                    currentOffset += carriageLength;
+                    continue;
+                }
+                
+                TrainConfigLoader.TrainTypeData trainData = TrainConfigLoader.getTrainType(carriageId);
+                
+                if (trainData != null && trainData.model() != null && trainData.doors() != null && trainData.doors().hasDoors()) {
+                    String modelPath = trainData.model().replace("densha-no-omocha:", "");
+                    List<TrainDoorDetector.DoorBoundingBox> doorBoxes = TrainDoorDetector.detectDoors(modelPath, trainData.doors().doorParts());
+                    
+                    if (!doorBoxes.isEmpty()) {
+                        double insetDist = 0.0;
+                        if (trainData != null) {
+                            double inset = trainData.bogieInset();
+                            insetDist = Math.max(0.0, Math.min(0.49, inset)) * carriageLength;
+                        }
+                        
+                        double frontOffset = currentOffset + insetDist;
+                        double rearOffset = currentOffset + carriageLength - insetDist;
+                        
+                        Vec3d frontPos = train.getPositionAlongContinuousPath(trainPathDistance - frontOffset);
+                        Vec3d rearPos = train.getPositionAlongContinuousPath(trainPathDistance - rearOffset);
+                        
+                        if (frontPos != null && rearPos != null) {
+                            List<Vec3d[]> doorWorldCorners = TrainDoorDetector.createDoorBoundingBoxes(doorBoxes, frontPos, rearPos, carriageWidth, carriageHeight, train.isReversed(), trainData.heightOffset());
+                            
+                            for (Vec3d[] corners : doorWorldCorners) {
+                                renderOrientedBox(context, corners, cameraPos);
+                            }
+                        }
+                    }
+                }
+                
+                currentOffset += carriageLength + 1.0;
+            }
+        }
+    }
+    
+    private static void renderOrientedBox(WorldRenderContext context, Vec3d[] corners, Vec3d cameraPos) {
+        if (corners == null || corners.length != 8) return;
+
+        MatrixStack matrices = context.matrixStack();
+        VertexConsumerProvider vertexConsumers = context.consumers();
+        VertexConsumer vertexConsumer = vertexConsumers.getBuffer(RenderLayer.getLines());
+
+        int[][] edges = {
+            {0, 1}, {1, 2}, {2, 3}, {3, 0},
+            {4, 5}, {5, 6}, {6, 7}, {7, 4},
+            {0, 4}, {1, 5}, {2, 6}, {3, 7}
+        };
+
+        for (int[] edge : edges) {
+            Vec3d p1 = corners[edge[0]];
+            Vec3d p2 = corners[edge[1]];
+
+            vertexConsumer.vertex(matrices.peek().getPositionMatrix(), (float)(p1.x - cameraPos.x), (float)(p1.y - cameraPos.y), (float)(p1.z - cameraPos.z))
+                .color(255, 100, 100, 255)
+                .normal(0, 1, 0);
+            
+            vertexConsumer.vertex(matrices.peek().getPositionMatrix(), (float)(p2.x - cameraPos.x), (float)(p2.y - cameraPos.y), (float)(p2.z - cameraPos.z))
+                .color(255, 100, 100, 255)
+                .normal(0, 1, 0);
+        }
     }
 }

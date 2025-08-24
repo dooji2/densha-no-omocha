@@ -17,6 +17,8 @@ import net.minecraft.util.math.Vec3d;
 import net.minecraft.util.math.MathHelper;
 import net.minecraft.world.World;
 
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -25,6 +27,7 @@ public class TrainBoardingManager {
     private static final Map<String, List<BoardingSyncPayload.BoardingData>> trainBoardingData = new HashMap<>();
     private static String currentBoardedTrainId = null;
     private static int currentBoardedCarriageIndex = -1;
+    private static String currentBoardedCarriageId = null;
     private static Vec3d currentRelativePosition = null;
     private static boolean isWaitingForBoardingResponse = false;
     private static String currentBoardingTrainId = null;
@@ -56,8 +59,12 @@ public class TrainBoardingManager {
         return currentBoardedTrainId; 
     }
     
-    public static int getCurrentBoardedCarriageIndex() { 
-        return currentBoardedCarriageIndex; 
+    public static int getCurrentBoardedCarriageIndex() {
+        return currentBoardedCarriageIndex;
+    }
+    
+    public static String getCurrentBoardedCarriageId() {
+        return currentBoardedCarriageId;
     }
     
     public static Vec3d getCurrentRelativePosition() { 
@@ -112,23 +119,30 @@ public class TrainBoardingManager {
             List<Double> carriageWidths = train.getBoundingBoxWidths();
             List<Double> carriageHeights = train.getBoundingBoxHeights();
 
+            List<String> orderedCarriageIds = new ArrayList<>(carriageIds);
+            if (train.isReversed()) {
+                Collections.reverse(orderedCarriageIds);
+            }
+
             double currentOffset = 0.0;
-            for (int i = 0; i < carriageIds.size(); i++) {
-                if (i >= carriageLengths.size() || i >= carriageWidths.size() || i >= carriageHeights.size()) {
+            for (int i = 0; i < orderedCarriageIds.size(); i++) {
+                String carriageId = orderedCarriageIds.get(i);
+
+                int originalIndex = train.isReversed() ? (carriageIds.size() - 1 - i) : i;
+
+                if (originalIndex >= carriageLengths.size() || originalIndex >= carriageWidths.size() || originalIndex >= carriageHeights.size()) {
                     continue;
                 }
 
-                double carriageLength = carriageLengths.get(i);
-                double carriageWidth = carriageWidths.get(i);
-                double carriageHeight = carriageHeights.get(i);
+                double carriageLength = carriageLengths.get(originalIndex);
+                double carriageWidth = carriageWidths.get(originalIndex);
+                double carriageHeight = carriageHeights.get(originalIndex);
 
                 if (carriageLength <= 0 || carriageWidth <= 0 || carriageHeight <= 0) {
                     currentOffset += carriageLength;
                     continue;
                 }
 
-                // I should be using data from the server to get the bogie insets, but when I do that the bounding box is rotated wrong :<
-                String carriageId = carriageIds.get(i);
                 TrainConfigLoader.TrainTypeData trainData = TrainConfigLoader.getTrainType(carriageId);
                 double insetDist = 0.0;
                 
@@ -144,53 +158,68 @@ public class TrainBoardingManager {
                 Vec3d rearPos = train.getPositionAlongContinuousPath(trainPathDistance - rearOffset);
 
                 if (frontPos != null && rearPos != null) {
-                    Box carriageBox = createCarriageBoundingBox(frontPos, rearPos, carriageWidth, carriageHeight);
-
-                    if (playerBox.intersects(carriageBox)) {
-                        Vec3d collisionPoint = calculateCollisionPoint(playerBox, carriageBox, frontPos, rearPos);
-                        Vec3d relativePos = convertWorldToRelativePosition(collisionPoint, frontPos, rearPos, carriageWidth, carriageHeight);
+                    if (trainData != null && trainData.model() != null && trainData.doors() != null && trainData.doors().hasDoors()) {
+                        String modelPath = trainData.model().replace("densha-no-omocha:", "");
+                        List<TrainDoorDetector.DoorBoundingBox> doorBoxes = TrainDoorDetector.detectDoors(modelPath, trainData.doors().doorParts());
                         
-                        currentRelativePosition = relativePos;
-                        requestBoarding(trainId, i, relativePos.x, relativePos.y, relativePos.z);
-                        return;
+                        if (!doorBoxes.isEmpty()) {
+                            List<Vec3d[]> doorWorldCorners = TrainDoorDetector.createDoorBoundingBoxes(doorBoxes, frontPos, rearPos, carriageWidth, carriageHeight, train.isReversed(), trainData.heightOffset());
+                            
+                            for (Vec3d[] corners : doorWorldCorners) {
+                                Box doorBox = createBoxFromCorners(corners);
+                                if (playerBox.intersects(doorBox)) {
+                                    Vec3d collisionPoint = calculateCollisionPoint(playerBox, doorBox, frontPos, rearPos);
+                                    Vec3d relativePos = convertWorldToRelativePosition(collisionPoint, frontPos, rearPos, carriageWidth, carriageHeight);
+                                    
+                                    currentRelativePosition = relativePos;
+                                    currentBoardedCarriageId = carriageId;
+                                    requestBoarding(trainId, originalIndex, relativePos.x, relativePos.y, relativePos.z);
+                                    return;
+                                }
+                            }
+                        }
                     }
                 }
+                
                 currentOffset += carriageLength + 1.0;
             }
         }
     }
 
-    private static Box createCarriageBoundingBox(Vec3d frontPos, Vec3d rearPos, double width, double height) {
-        Vec3d center = new Vec3d(
-            (frontPos.x + rearPos.x) * 0.5,
-            (frontPos.y + rearPos.y) * 0.5,
-            (frontPos.z + rearPos.z) * 0.5
-        );
-        
-        double length = frontPos.distanceTo(rearPos);
-        
-        return new Box(
-            center.x - width * 0.5,
-            center.y - height * 0.5,
-            center.z - length * 0.5,
-            center.x + width * 0.5,
-            center.y + height * 0.5,
-            center.z + length * 0.5
-        );
-    }
 
-    private static Vec3d calculateCollisionPoint(Box playerBox, Box carriageBox, Vec3d frontPos, Vec3d rearPos) {
+
+    private static Vec3d calculateCollisionPoint(Box playerBox, Box doorBox, Vec3d frontPos, Vec3d rearPos) {
         Vec3d playerCenter = new Vec3d(
             (playerBox.minX + playerBox.maxX) * 0.5,
             (playerBox.minY + playerBox.maxY) * 0.5,
             (playerBox.minZ + playerBox.maxZ) * 0.5
         );
 
-        double clampedX = Math.max(carriageBox.minX, Math.min(carriageBox.maxX, playerCenter.x));
-        double clampedY = Math.max(carriageBox.minY, Math.min(carriageBox.maxY, playerCenter.y));
-        double clampedZ = Math.max(carriageBox.minZ, Math.min(carriageBox.maxZ, playerCenter.z));
+        double clampedX = Math.max(doorBox.minX, Math.min(doorBox.maxX, playerCenter.x));
+        double clampedY = Math.max(doorBox.minY, Math.min(doorBox.maxY, playerCenter.y));
+        double clampedZ = Math.max(doorBox.minZ, Math.min(doorBox.maxZ, playerCenter.z));
         
         return new Vec3d(clampedX, clampedY, clampedZ);
+    }
+
+    private static Box createBoxFromCorners(Vec3d[] corners) {
+        if (corners == null || corners.length != 8) {
+            return new Box(0, 0, 0, 0, 0, 0);
+        }
+        
+        double minX = Double.POSITIVE_INFINITY, minY = Double.POSITIVE_INFINITY, minZ = Double.POSITIVE_INFINITY;
+        double maxX = Double.NEGATIVE_INFINITY, maxY = Double.NEGATIVE_INFINITY, maxZ = Double.NEGATIVE_INFINITY;
+        
+        for (Vec3d corner : corners) {
+            minX = Math.min(minX, corner.x);
+            minY = Math.min(minY, corner.y);
+            minZ = Math.min(minZ, corner.z);
+            maxX = Math.max(maxX, corner.x);
+            maxY = Math.max(maxY, corner.y);
+            maxZ = Math.max(maxZ, corner.z);
+        }
+        
+        return new Box(minX, minY, minZ, maxX, maxY, maxZ);
     }
 
     private static Vec3d convertWorldToRelativePosition(Vec3d worldPos, Vec3d frontPos, Vec3d rearPos, double width, double height) {
@@ -316,6 +345,7 @@ public class TrainBoardingManager {
     public static void resetBoardingState() {
         currentBoardedTrainId = null;
         currentBoardedCarriageIndex = -1;
+        currentBoardedCarriageId = null;
         currentRelativePosition = null;
         isWaitingForBoardingResponse = false;
         currentBoardingTrainId = null;

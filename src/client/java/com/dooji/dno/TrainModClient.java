@@ -14,13 +14,11 @@ import com.dooji.renderix.Renderix;
 
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
-import net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents;
 import net.fabricmc.fabric.api.client.item.v1.ItemTooltipCallback;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientWorldEvents;
 import net.fabricmc.fabric.api.resource.SimpleSynchronousResourceReloadListener;
 import net.fabricmc.fabric.api.resource.ResourceManagerHelper;
-import net.minecraft.client.option.KeyBinding;
 import net.minecraft.client.util.InputUtil;
 import net.minecraft.resource.ResourceManager;
 import net.minecraft.resource.ResourceType;
@@ -41,16 +39,8 @@ public class TrainModClient implements ClientModInitializer {
 	public static final String MOD_ID = "densha-no-omocha-client";
 	public static final Logger LOGGER = LoggerFactory.getLogger(MOD_ID);
 
-	private static KeyBinding disembarkKey;
-
 	@Override
 	public void onInitializeClient() {
-		disembarkKey = KeyBindingHelper.registerKeyBinding(new KeyBinding(
-			"key.dno.disembark",
-			InputUtil.Type.KEYSYM,
-			GLFW.GLFW_KEY_R,
-			"category.dno.general"
-		));
 
 		TrainModClientNetworking.init();
 		TrackItemClientHandler.init();
@@ -63,7 +53,7 @@ public class TrainModClient implements ClientModInitializer {
 		TrainBoardingRenderer.init();
 
 		ClientTickEvents.END_CLIENT_TICK.register(client -> {
-			if (disembarkKey.wasPressed() && TrainBoardingManager.isPlayerBoarded()) {
+			if (client.player != null && TrainBoardingManager.isPlayerBoarded() && InputUtil.isKeyPressed(client.getWindow().getHandle(), GLFW.GLFW_KEY_LEFT_SHIFT)) {
 				TrainBoardingManager.requestDisembark();
 			}
 		});

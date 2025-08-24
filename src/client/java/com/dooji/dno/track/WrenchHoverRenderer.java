@@ -642,10 +642,8 @@ public class WrenchHoverRenderer {
                     
                     if (!doorBoxes.isEmpty()) {
                         double insetDist = 0.0;
-                        if (trainData != null) {
-                            double inset = trainData.bogieInset();
-                            insetDist = Math.max(0.0, Math.min(0.49, inset)) * carriageLength;
-                        }
+                        double inset = trainData.bogieInset();
+                        insetDist = Math.max(0.0, Math.min(0.49, inset)) * carriageLength;
                         
                         double frontOffset = currentOffset + insetDist;
                         double rearOffset = currentOffset + carriageLength - insetDist;

@@ -14,6 +14,7 @@
   "message.dno.track_direction_error": "Track directions must be compatible",
   "message.dno.track_connected": "Track connected from %d, %d, %d to %d, %d, %d",
   "message.dno.track_placed": "Track segment placed successfully",
+  "message.dno.press_shift_to_dismount": "Press Left Shift to dismount",
   "gui.dno.track_config.title": "Track Configuration",
   "gui.dno.track_config.tab.track": "Track",
   "gui.dno.track_config.tab.train": "Train",
@@ -44,6 +45,5 @@
   "gui.dno.train_config.back": "Back",
   "gui.dno.common.save": "Save",
   "gui.dno.common.cancel": "Cancel",
-  "gui.dno.common.back": "Back",
-  "message.dno.press_shift_to_dismount": "Press Left Shift to dismount"
+  "gui.dno.common.back": "Back"
 }

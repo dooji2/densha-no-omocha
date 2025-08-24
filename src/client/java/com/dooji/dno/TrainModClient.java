@@ -1,5 +1,6 @@
 package com.dooji.dno;
 
+import com.dooji.renderix.Renderix;
 import com.dooji.dno.block.TrackNodeBlockRenderer;
 import com.dooji.dno.network.TrainModClientNetworking;
 import com.dooji.dno.registry.TrainModItems;
@@ -10,7 +11,10 @@ import com.dooji.dno.train.TrainBoardingManager;
 import com.dooji.dno.train.TrainBoardingRenderer;
 import com.dooji.dno.train.TrainConfigLoader;
 import com.dooji.dno.train.TrainRenderer;
-import com.dooji.renderix.Renderix;
+import com.dooji.dno.track.TrackManagerClient;
+import com.dooji.dno.track.RouteManagerClient;
+import com.dooji.dno.track.TrackConfigLoader;
+import com.dooji.dno.train.TrainManagerClient;
 
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
@@ -19,21 +23,17 @@ import net.fabricmc.fabric.api.client.item.v1.ItemTooltipCallback;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientWorldEvents;
 import net.fabricmc.fabric.api.resource.SimpleSynchronousResourceReloadListener;
 import net.fabricmc.fabric.api.resource.ResourceManagerHelper;
+
 import net.minecraft.client.util.InputUtil;
 import net.minecraft.resource.ResourceManager;
 import net.minecraft.resource.ResourceType;
 import net.minecraft.text.Text;
 import net.minecraft.util.Formatting;
 import net.minecraft.util.Identifier;
-import org.lwjgl.glfw.GLFW;
 
+import org.lwjgl.glfw.GLFW;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import com.dooji.dno.track.TrackManagerClient;
-import com.dooji.dno.track.RouteManagerClient;
-import com.dooji.dno.track.TrackConfigLoader;
-import com.dooji.dno.train.TrainManagerClient;
 
 public class TrainModClient implements ClientModInitializer {
 	public static final String MOD_ID = "densha-no-omocha-client";
@@ -41,7 +41,6 @@ public class TrainModClient implements ClientModInitializer {
 
 	@Override
 	public void onInitializeClient() {
-
 		TrainModClientNetworking.init();
 		TrackItemClientHandler.init();
 		TrackRenderer.init();

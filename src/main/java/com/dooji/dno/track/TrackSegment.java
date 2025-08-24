@@ -19,6 +19,8 @@ public class TrackSegment {
     private int maxSpeedKmh;
     private String stationName;
     private String stationId;
+    private boolean openDoorsLeft;
+    private boolean openDoorsRight;
 
     public TrackSegment(BlockPos start, BlockPos end, Direction startDirection, Direction endDirection) {
         this(start, end, startDirection, endDirection, TrainMod.MOD_ID + ":default", "normal");
@@ -38,6 +40,8 @@ public class TrackSegment {
         this.maxSpeedKmh = 80;
         this.stationName = "";
         this.stationId = "";
+        this.openDoorsLeft = false;
+        this.openDoorsRight = false;
     }
 
     public BlockPos start() {
@@ -128,6 +132,26 @@ public class TrackSegment {
         this.stationId = stationId;
     }
 
+    public boolean getOpenDoorsLeft() {
+        return openDoorsLeft;
+    }
+
+    public void setOpenDoorsLeft(boolean openDoorsLeft) {
+        this.openDoorsLeft = openDoorsLeft;
+    }
+
+    public boolean getOpenDoorsRight() {
+        return openDoorsRight;
+    }
+
+    public void setOpenDoorsRight(boolean openDoorsRight) {
+        this.openDoorsRight = openDoorsRight;
+    }
+
+    public boolean shouldOpenDoors() {
+        return openDoorsLeft || openDoorsRight;
+    }
+
     public boolean contains(BlockPos pos) {
         return pos.equals(start()) || pos.equals(end());
     }
@@ -170,6 +194,9 @@ public class TrackSegment {
         if (stationId != null) {
             nbt.putString("stationId", stationId);
         }
+        
+        nbt.putBoolean("openDoorsLeft", openDoorsLeft);
+        nbt.putBoolean("openDoorsRight", openDoorsRight);
         
         return nbt;
     }
@@ -226,6 +253,14 @@ public class TrackSegment {
 
         if (nbt.contains("stationId")) {
             segment.setStationId(nbt.getString("stationId").orElse(""));
+        }
+
+        if (nbt.contains("openDoorsLeft")) {
+            segment.setOpenDoorsLeft(nbt.getBoolean("openDoorsLeft").orElse(false));
+        }
+
+        if (nbt.contains("openDoorsRight")) {
+            segment.setOpenDoorsRight(nbt.getBoolean("openDoorsRight").orElse(false));
         }
 
         return segment;

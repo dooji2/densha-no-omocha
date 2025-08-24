@@ -48,7 +48,7 @@ public class TrainModClientNetworking {
         ClientPlayNetworking.registerGlobalReceiver(UpdateTrackSegmentPayload.ID, (payload, context) -> {
             MinecraftClient client = MinecraftClient.getInstance();
             client.execute(() -> {
-                TrackManagerClient.syncUpdate(payload.start(), payload.end(), payload.modelId(), payload.type(), payload.dwellTimeSeconds(), payload.slopeCurvature(), payload.trainId(), payload.routeId(), payload.maxSpeedKmh(), payload.stationName(), payload.stationId());
+                TrackManagerClient.syncUpdate(payload.start(), payload.end(), payload.modelId(), payload.type(), payload.dwellTimeSeconds(), payload.slopeCurvature(), payload.trainId(), payload.routeId(), payload.maxSpeedKmh(), payload.stationName(), payload.stationId(), payload.openDoorsLeft(), payload.openDoorsRight());
             });
         });
 

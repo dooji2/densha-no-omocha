@@ -7,7 +7,7 @@ import net.minecraft.network.packet.CustomPayload;
 import net.minecraft.util.Identifier;
 import net.minecraft.util.math.BlockPos;
 
-public record UpdateTrackSegmentPayload(BlockPos start, BlockPos end, String modelId, String type, int dwellTimeSeconds, double slopeCurvature, String trainId, String routeId, int maxSpeedKmh, String stationName, String stationId) implements CustomPayload {
+public record UpdateTrackSegmentPayload(BlockPos start, BlockPos end, String modelId, String type, int dwellTimeSeconds, double slopeCurvature, String trainId, String routeId, int maxSpeedKmh, String stationName, String stationId, boolean openDoorsLeft, boolean openDoorsRight) implements CustomPayload {
     public static final CustomPayload.Id<UpdateTrackSegmentPayload> ID = new CustomPayload.Id<>(Identifier.of(TrainMod.MOD_ID, "update_track_segment"));
 
     public static final PacketCodec<PacketByteBuf, UpdateTrackSegmentPayload> CODEC = PacketCodec.ofStatic(
@@ -35,6 +35,8 @@ public record UpdateTrackSegmentPayload(BlockPos start, BlockPos end, String mod
             buf.writeInt(payload.maxSpeedKmh());
             buf.writeString(payload.stationName());
             buf.writeString(payload.stationId());
+            buf.writeBoolean(payload.openDoorsLeft());
+            buf.writeBoolean(payload.openDoorsRight());
         },
         buf -> {
             BlockPos start = buf.readBlockPos();
@@ -59,7 +61,9 @@ public record UpdateTrackSegmentPayload(BlockPos start, BlockPos end, String mod
             int maxSpeedKmh = buf.readInt();
             String stationName = buf.readString();
             String stationId = buf.readString();
-            return new UpdateTrackSegmentPayload(start, end, modelId, type, dwellTimeSeconds, slopeCurvature, trainId, routeId, maxSpeedKmh, stationName, stationId);
+            boolean openDoorsLeft = buf.readBoolean();
+            boolean openDoorsRight = buf.readBoolean();
+            return new UpdateTrackSegmentPayload(start, end, modelId, type, dwellTimeSeconds, slopeCurvature, trainId, routeId, maxSpeedKmh, stationName, stationId, openDoorsLeft, openDoorsRight);
         }
     );
 

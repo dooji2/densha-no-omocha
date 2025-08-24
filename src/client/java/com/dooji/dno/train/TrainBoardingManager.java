@@ -6,6 +6,8 @@ import com.dooji.dno.network.payloads.BoardingSyncPayload;
 import com.dooji.dno.network.payloads.PlayerPositionUpdatePayload;
 import com.dooji.dno.network.payloads.RequestBoardingPayload;
 import com.dooji.dno.network.payloads.RequestDisembarkPayload;
+import com.dooji.dno.track.TrackSegment;
+import com.dooji.dno.track.TrackManagerClient;
 
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
@@ -163,9 +165,20 @@ public class TrainBoardingManager {
                         List<TrainDoorDetector.DoorBoundingBox> doorBoxes = TrainDoorDetector.detectDoors(modelPath, trainData.doors().doorParts());
                         
                         if (!doorBoxes.isEmpty()) {
-                            List<Vec3d[]> doorWorldCorners = TrainDoorDetector.createDoorBoundingBoxes(doorBoxes, frontPos, rearPos, carriageWidth, carriageHeight, train.isReversed(), trainData.heightOffset());
+                            if (!isBoardingAllowedFromPlayerSide(frontPos, rearPos, playerBox)) {
+                                continue;
+                            }
                             
-                            for (Vec3d[] corners : doorWorldCorners) {
+                            List<Vec3d[]> doorWorldCorners = TrainDoorDetector.createDoorBoundingBoxes(doorBoxes, frontPos, rearPos, carriageWidth, carriageHeight, train.isReversed(), trainData.heightOffset(), trainData.isReversed());
+                            
+                            for (int doorIndex = 0; doorIndex < doorBoxes.size(); doorIndex++) {
+                                TrainConfigLoader.DoorPart doorPart = trainData.doors().doorParts().get(doorIndex);
+                                Vec3d[] corners = doorWorldCorners.get(doorIndex);
+
+                                if (!isBoardingAllowedForDoor(doorPart, frontPos, rearPos, playerBox, trainData.isReversed())) {
+                                    continue;
+                                }
+
                                 Box doorBox = createBoxFromCorners(corners);
                                 if (playerBox.intersects(doorBox)) {
                                     Vec3d collisionPoint = calculateCollisionPoint(playerBox, doorBox, frontPos, rearPos);
@@ -185,8 +198,6 @@ public class TrainBoardingManager {
             }
         }
     }
-
-
 
     private static Vec3d calculateCollisionPoint(Box playerBox, Box doorBox, Vec3d frontPos, Vec3d rearPos) {
         Vec3d playerCenter = new Vec3d(
@@ -358,5 +369,97 @@ public class TrainBoardingManager {
             player.getAbilities().flying = prevFlying;
             player.setNoGravity(prevNoGravity);
         }
+    }
+
+    private static boolean isBoardingAllowedFromPlayerSide(Vec3d frontPos, Vec3d rearPos, Box playerBox) {
+        Map<String, TrackSegment> tracks = TrackManagerClient.getTracksFor(MinecraftClient.getInstance().world);
+        if (tracks == null) return true;
+        
+        Vec3d playerCenter = new Vec3d(
+            (playerBox.minX + playerBox.maxX) * 0.5,
+            (playerBox.minY + playerBox.maxY) * 0.5,
+            (playerBox.minZ + playerBox.maxZ) * 0.5
+        );
+        
+        for (TrackSegment segment : tracks.values()) {
+            if (!segment.isPlatform()) continue;
+            
+            if (isPlayerNearTrackSegment(segment, playerCenter, 3.0)) {
+                if (!segment.shouldOpenDoors()) {
+                    return false;
+                }
+                
+                double trackYaw = Math.atan2(rearPos.x - frontPos.x, rearPos.z - frontPos.z);
+                Vec3d trackCenter = new Vec3d(
+                    (frontPos.x + rearPos.x) * 0.5,
+                    (frontPos.y + rearPos.y) * 0.5,
+                    (frontPos.z + rearPos.z) * 0.5
+                );
+                
+                Vec3d playerRelative = playerCenter.subtract(trackCenter);
+                
+                double trackDirectionX = Math.cos(trackYaw);
+                double trackDirectionZ = Math.sin(trackYaw);
+                
+                double crossProduct = playerRelative.x * trackDirectionZ - playerRelative.z * trackDirectionX;
+                boolean isPlayerOnLeft = crossProduct > 0;
+                boolean isPlayerOnRight = crossProduct < 0;
+                
+                if (isPlayerOnLeft && !segment.getOpenDoorsLeft()) {
+                    return false;
+                }
+                if (isPlayerOnRight && !segment.getOpenDoorsRight()) {
+                    return false;
+                }
+                return true;
+            }
+        }
+        
+        return true;
+    }
+    
+    private static boolean isBoardingAllowedForDoor(TrainConfigLoader.DoorPart doorPart, Vec3d frontPos, Vec3d rearPos, Box playerBox, boolean isCarriageReversed) {
+        Map<String, TrackSegment> tracks = TrackManagerClient.getTracksFor(MinecraftClient.getInstance().world);
+        if (tracks == null) return true;
+
+        for (TrackSegment segment : tracks.values()) {
+            if (!segment.isPlatform()) continue;
+
+            if (segment.shouldOpenDoors()) {
+                boolean isDoorLeft = "LEFT".equals(doorPart.side());
+                
+                if (isCarriageReversed) {
+                    isDoorLeft = !isDoorLeft;
+                }
+
+                if (isDoorLeft && !segment.getOpenDoorsLeft()) {
+                    return false;
+                }
+
+                if (!isDoorLeft && !segment.getOpenDoorsRight()) {
+                    return false;
+                }
+
+                return true;
+            } else {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private static boolean isPlayerNearTrackSegment(TrackSegment segment, Vec3d playerPos, double maxDistance) {
+        double dx1 = playerPos.x - segment.start().getX();
+        double dy1 = playerPos.y - segment.start().getY();
+        double dz1 = playerPos.z - segment.start().getZ();
+        double dx2 = playerPos.x - segment.end().getX();
+        double dy2 = playerPos.y - segment.end().getY();
+        double dz2 = playerPos.z - segment.end().getZ();
+
+        double dist1 = Math.sqrt(dx1 * dx1 + dy1 * dy1 + dz1 * dz1);
+        double dist2 = Math.sqrt(dx2 * dx2 + dy2 * dy2 + dz2 * dz2);
+
+        return dist1 <= maxDistance || dist2 <= maxDistance;
     }
 }

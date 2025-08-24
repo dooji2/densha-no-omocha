@@ -652,7 +652,7 @@ public class WrenchHoverRenderer {
                         Vec3d rearPos = train.getPositionAlongContinuousPath(trainPathDistance - rearOffset);
                         
                         if (frontPos != null && rearPos != null) {
-                            List<Vec3d[]> doorWorldCorners = TrainDoorDetector.createDoorBoundingBoxes(doorBoxes, frontPos, rearPos, carriageWidth, carriageHeight, train.isReversed(), trainData.heightOffset());
+                            List<Vec3d[]> doorWorldCorners = TrainDoorDetector.createDoorBoundingBoxes(doorBoxes, frontPos, rearPos, carriageWidth, carriageHeight, train.isReversed(), trainData.heightOffset(), trainData.isReversed());
                             
                             for (Vec3d[] corners : doorWorldCorners) {
                                 renderOrientedBox(context, corners, cameraPos);

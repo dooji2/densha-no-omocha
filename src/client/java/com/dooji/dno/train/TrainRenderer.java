@@ -290,7 +290,7 @@ public class TrainRenderer {
                     double doorWidth = doors.calculateDoorWidth(trainData.model());
                     double doorOffset = doorWidth * doorValue;
                     
-                    Renderix.renderModelWithDoorAnimation(model, matrices, vertexConsumers, packedLight, packedOverlay, doorOffset, doors.slideDirection(), doors.doorParts(), instanceKey, interiorLit, trainData.interiorPart());
+                    Renderix.renderModelWithDoorAnimation(model, matrices, vertexConsumers, packedLight, packedOverlay, doorOffset, doors.slideDirection(), doors.doorParts(), instanceKey, interiorLit, trainData.interiorPart(), trainData.isReversed());
                 } else {
                     Renderix.enqueueInstance(model, transform, packedLight, packedOverlay, 0xFFFFFFFF, interiorLit, trainData.interiorPart());
                 }

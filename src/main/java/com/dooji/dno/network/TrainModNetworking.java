@@ -111,7 +111,7 @@ public class TrainModNetworking {
                 return;
             }
 
-            TrackManager.updateTrackSegment(world, start, end, payload.modelId(), payload.type(), payload.dwellTimeSeconds(), payload.slopeCurvature(), payload.routeId(), payload.maxSpeedKmh(), payload.stationName(), payload.stationId());
+            TrackManager.updateTrackSegment(world, start, end, payload.modelId(), payload.type(), payload.dwellTimeSeconds(), payload.slopeCurvature(), payload.routeId(), payload.maxSpeedKmh(), payload.stationName(), payload.stationId(), payload.openDoorsLeft(), payload.openDoorsRight());
         });
 
         ServerPlayNetworking.registerGlobalReceiver(CreateRoutePayload.ID, (payload, context) -> {
@@ -128,7 +128,7 @@ public class TrainModNetworking {
             ServerPlayerEntity player = context.player();
             ServerWorld world = (ServerWorld) player.getWorld();
             if (world != null) {
-                TrackManager.updateTrackSegment(world, payload.start(), payload.end(), null, null, 0, 0.0, payload.routeId(), 0, null, null);
+                TrackManager.updateTrackSegment(world, payload.start(), payload.end(), null, null, 0, 0.0, payload.routeId(), 0, null, null, false, false);
             }
         });
 
@@ -340,7 +340,9 @@ public class TrainModNetworking {
             segment.getRouteId(),
             segment.getMaxSpeedKmh(),
             segment.getStationName(),
-            segment.getStationId()
+            segment.getStationId(),
+            segment.getOpenDoorsLeft(),
+            segment.getOpenDoorsRight()
         );
 
         for (ServerPlayerEntity p : world.getPlayers()) {

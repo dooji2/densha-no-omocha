@@ -2,6 +2,8 @@ package com.dooji.renderix;
 
 import de.javagl.obj.*;
 import com.dooji.dno.train.TrainConfigLoader;
+import com.dooji.dno.track.TrackSegment;
+import com.dooji.dno.track.TrackManagerClient;
 
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.render.RenderLayer;
@@ -533,10 +535,10 @@ public class Renderix {
     }
 
     public static void renderModelWithDoorAnimation(ObjModel model, MatrixStack matrices, VertexConsumerProvider consumers, int light, int overlay, double doorOffset, String slideAxis, List<TrainConfigLoader.DoorPart> parts, String instanceKey, boolean interiorLit) {
-        renderModelWithDoorAnimation(model, matrices, consumers, light, overlay, doorOffset, slideAxis, parts, instanceKey, interiorLit, "interior");
+        renderModelWithDoorAnimation(model, matrices, consumers, light, overlay, doorOffset, slideAxis, parts, instanceKey, interiorLit, "interior", false);
     }
 
-    public static void renderModelWithDoorAnimation(ObjModel model, MatrixStack matrices, VertexConsumerProvider consumers, int light, int overlay, double doorOffset, String slideAxis, List<TrainConfigLoader.DoorPart> parts, String instanceKey, boolean interiorLit, String interiorPart) {
+    public static void renderModelWithDoorAnimation(ObjModel model, MatrixStack matrices, VertexConsumerProvider consumers, int light, int overlay, double doorOffset, String slideAxis, List<TrainConfigLoader.DoorPart> parts, String instanceKey, boolean interiorLit, String interiorPart, boolean isCarriageReversed) {
         if (model == null) return;
 
         matrices.push();
@@ -545,7 +547,7 @@ public class Renderix {
 
             if (matchingDoorPart != null) {
                 matrices.push();
-                applyDoorAnimation(model, matrices, meshKey, slideAxis, doorOffset, matchingDoorPart, instanceKey);
+                applyDoorAnimation(model, matrices, meshKey, slideAxis, doorOffset, matchingDoorPart, instanceKey, isCarriageReversed);
                 
                 Matrix4f matrix = matrices.peek().getPositionMatrix();
                 int meshLight = light;
@@ -578,16 +580,54 @@ public class Renderix {
         return null;
     }
 
-    private static void applyDoorAnimation(ObjModel model, MatrixStack matrices, String meshKey, String slideAxis, double doorOffset, TrainConfigLoader.DoorPart doorPart, String instanceKey) {
+    private static void applyDoorAnimation(ObjModel model, MatrixStack matrices, String meshKey, String slideAxis, double doorOffset, TrainConfigLoader.DoorPart doorPart, String instanceKey, boolean isCarriageReversed) {
         String doorType = doorPart.type();
         String doorDirection = doorPart.direction();
         boolean isLeftSide = "LEFT".equals(doorPart.side());
+        
+        if (isCarriageReversed) {
+            isLeftSide = !isLeftSide;
+        }
+
+        if (!shouldAnimateDoor(isLeftSide, doorOffset)) {
+            return;
+        }
 
         if ("SLIDE".equals(doorType)) {
             handleSlideDoorAnimation(model, matrices, meshKey, slideAxis, doorOffset, doorDirection, isLeftSide, instanceKey);
         } else if ("POP_SLIDE".equals(doorType)) {
             handlePopSlideDoorAnimation(model, matrices, meshKey, slideAxis, doorOffset, doorDirection, isLeftSide, instanceKey);
         }
+    }
+
+    private static boolean shouldAnimateDoor(boolean isLeftSide, double doorOffset) {
+        if (doorOffset <= 0) {
+            return true;
+        }
+
+        MinecraftClient client = MinecraftClient.getInstance();
+        if (client.world == null) return true;
+
+        Map<String, TrackSegment> tracks = TrackManagerClient.getTracksFor(client.world);
+        if (tracks == null) return true;
+
+        for (TrackSegment segment : tracks.values()) {
+            if (!segment.isPlatform()) continue;
+
+            if (segment.shouldOpenDoors()) {
+                if (isLeftSide && !segment.getOpenDoorsLeft()) {
+                    return false;
+                }
+                if (!isLeftSide && !segment.getOpenDoorsRight()) {
+                    return false;
+                }
+                return true;
+            } else {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     private static void handleSlideDoorAnimation(ObjModel model, MatrixStack matrices, String meshKey, String slideAxis, double doorOffset, String doorDirection, boolean isLeftSide, String instanceKey) {

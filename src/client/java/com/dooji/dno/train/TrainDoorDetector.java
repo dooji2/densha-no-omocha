@@ -119,7 +119,7 @@ public class TrainDoorDetector {
         return new DoorBoundingBox(center, width, height, thickness);
     }
     
-    public static List<Vec3d[]> createDoorBoundingBoxes(List<DoorBoundingBox> doorBoxes, Vec3d frontPos, Vec3d rearPos, double trainWidth, double trainHeight, boolean isReversed, double heightOffset) {
+    public static List<Vec3d[]> createDoorBoundingBoxes(List<DoorBoundingBox> doorBoxes, Vec3d frontPos, Vec3d rearPos, double trainWidth, double trainHeight, boolean isReversed, double heightOffset, boolean isCarriageReversed) {
         List<Vec3d[]> worldCornersList = new ArrayList<>();
         
         if (doorBoxes.isEmpty()) return worldCornersList;
@@ -141,6 +141,11 @@ public class TrainDoorDetector {
         trainYaw += Math.PI;
 
         if (isReversed) {
+            trainYaw += Math.PI;
+            trainPitch = -trainPitch;
+        }
+        
+        if (isCarriageReversed) {
             trainYaw += Math.PI;
             trainPitch = -trainPitch;
         }

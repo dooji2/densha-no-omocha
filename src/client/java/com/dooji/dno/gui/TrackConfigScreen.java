@@ -49,8 +49,11 @@ public class TrackConfigScreen extends Screen {
     private static final int CONTENT_PADDING = 6;
     private static final int SEARCH_HEIGHT = 20;
 
-    private final TrackSegment segment;
+    private TrackSegment segment;
     private ButtonWidget segmentTypeButton;
+    private ButtonWidget doorSideLeftButton;
+    private ButtonWidget doorSideRightButton;
+    private ButtonWidget doorSideNoneButton;
 
     private ButtonWidget sidebarTrackButton;
     private ButtonWidget sidebarTrainButton;
@@ -144,7 +147,9 @@ public class TrackConfigScreen extends Screen {
     protected void init() {
         super.init();
 
+        refreshSegmentData();
         loadAvailableOptions();
+        loadCurrentDoorSettings();
 
         if (isRouteTab) {
             requestRouteSync();
@@ -241,13 +246,42 @@ public class TrackConfigScreen extends Screen {
         this.addDrawableChild(this.trainSearchField);
 
         int typeButtonY = contentY + 60;
+        int totalButtonWidth = Math.min(BUTTON_WIDTH, contentWidth);
+
         this.segmentTypeButton = ButtonWidget.builder(Text.translatable("gui.dno.track_config.type", selectedType), button -> {
             selectedTypeIndex = (selectedTypeIndex + 1) % availableTypes.size();
             selectedType = availableTypes.get(selectedTypeIndex);
             button.setMessage(Text.translatable("gui.dno.track_config.type", selectedType));
             updateTrainConfigTabVisibility();
-        }).dimensions(contentX, typeButtonY, Math.min(BUTTON_WIDTH, contentWidth), 20).build();
+        }).dimensions(contentX, typeButtonY, totalButtonWidth, 20).build();
         this.addDrawableChild(this.segmentTypeButton);
+
+        int doorButtonWidth = 20;
+        int doorButtonSpacing = 5;
+        int doorButtonsStartX = contentX;
+
+        this.doorSideLeftButton = ButtonWidget.builder(Text.literal("L"), button -> {
+            boolean newState = !segment.getOpenDoorsLeft();
+            segment.setOpenDoorsLeft(newState);
+            updateDoorButtonStates();
+        }).dimensions(doorButtonsStartX, typeButtonY, doorButtonWidth, 20).build();
+        this.addDrawableChild(this.doorSideLeftButton);
+
+        this.doorSideRightButton = ButtonWidget.builder(Text.literal("R"), button -> {
+            boolean newState = !segment.getOpenDoorsRight();
+            segment.setOpenDoorsRight(newState);
+            updateDoorButtonStates();
+        }).dimensions(doorButtonsStartX + doorButtonWidth + doorButtonSpacing, typeButtonY, doorButtonWidth, 20).build();
+        this.addDrawableChild(this.doorSideRightButton);
+
+        this.doorSideNoneButton = ButtonWidget.builder(Text.literal("N"), button -> {
+            segment.setOpenDoorsLeft(false);
+            segment.setOpenDoorsRight(false);
+            updateDoorButtonStates();
+        }).dimensions(doorButtonsStartX + (doorButtonWidth + doorButtonSpacing) * 2, typeButtonY, doorButtonWidth, 20).build();
+        this.addDrawableChild(this.doorSideNoneButton);
+
+        updateDoorButtonStates();
 
         int fieldWidth = 100;
         int fieldHeight = 20;
@@ -316,6 +350,8 @@ public class TrackConfigScreen extends Screen {
         if (!isRouteTab) {
             updateTextFieldPositions();
         }
+
+        loadCurrentDoorSettings();
         updateTrainConfigTabVisibility();
     }
 
@@ -464,6 +500,9 @@ public class TrackConfigScreen extends Screen {
         boolean trackView = !isTrainConfigTab && !isRouteTab;
         boolean routeView = isRouteTab;
         this.segmentTypeButton.visible = trackView;
+        this.doorSideLeftButton.visible = trackView && isPlatform;
+        this.doorSideRightButton.visible = trackView && isPlatform;
+        this.doorSideNoneButton.visible = trackView && isPlatform;
         this.maxSpeedField.visible = trackView;
         this.stationNameField.visible = isPlatform && trackView;
         this.dwellTimeField.visible = isPlatform && trackView;
@@ -472,6 +511,8 @@ public class TrackConfigScreen extends Screen {
         
         if (trackView) {
             updateTextFieldPositions();
+            refreshSegmentData();
+            loadCurrentDoorSettings();
         }
 
         if (!isSiding && isTrainConfigTab) {
@@ -659,10 +700,44 @@ public class TrackConfigScreen extends Screen {
             int typeButtonY = bottomY - 20;
 
             if (this.segmentTypeButton != null) {
-                this.segmentTypeButton.setX(contentX);
-                this.segmentTypeButton.setY(typeButtonY);
-                this.segmentTypeButton.setWidth(listWidth);
+                if (isPlatform) {
+                    int doorButtonWidth = 20;
+                    int doorButtonSpacing = 5;
+                    int typeButtonWhenPlatformX = contentX + (doorButtonWidth * 3 + doorButtonSpacing * 2) + doorButtonSpacing;
+                    int remainingWidth = Math.max(80, Math.min(contentWidth, listWidth - (doorButtonWidth * 3 + doorButtonSpacing * 2 + doorButtonSpacing)));
+
+                    this.segmentTypeButton.setX(typeButtonWhenPlatformX);
+                    this.segmentTypeButton.setY(typeButtonY);
+                    this.segmentTypeButton.setWidth(remainingWidth);
+                } else {
+                    this.segmentTypeButton.setX(contentX);
+                    this.segmentTypeButton.setY(typeButtonY);
+                    this.segmentTypeButton.setWidth(listWidth);
+                }
                 this.segmentTypeButton.visible = true;
+            }
+
+            if (isPlatform && this.doorSideLeftButton != null && this.doorSideRightButton != null && this.doorSideNoneButton != null) {
+                int doorButtonWidth = 20;
+                int doorButtonSpacing = 5;
+                int doorButtonsStartX = contentX;
+
+                this.doorSideLeftButton.setX(doorButtonsStartX);
+                this.doorSideLeftButton.setY(typeButtonY);
+                this.doorSideLeftButton.setWidth(doorButtonWidth);
+                this.doorSideLeftButton.visible = true;
+
+                this.doorSideRightButton.setX(doorButtonsStartX + doorButtonWidth + doorButtonSpacing);
+                this.doorSideRightButton.setY(typeButtonY);
+                this.doorSideRightButton.setWidth(doorButtonWidth);
+                this.doorSideRightButton.visible = true;
+
+                this.doorSideNoneButton.setX(doorButtonsStartX + (doorButtonWidth + doorButtonSpacing) * 2);
+                this.doorSideNoneButton.setY(typeButtonY);
+                this.doorSideNoneButton.setWidth(doorButtonWidth);
+                this.doorSideNoneButton.visible = true;
+
+                updateDoorButtonStates();
             }
 
             int fieldsY = typeButtonY - 25;
@@ -1892,7 +1967,9 @@ public class TrackConfigScreen extends Screen {
             (isRouteTab && selectedRouteId != null && !selectedRouteId.isEmpty()) ? selectedRouteId : segment.getRouteId(),
             maxSpeed,
             stationName,
-            segment.getStationId()
+            segment.getStationId(),
+            segment.getOpenDoorsLeft(),
+            segment.getOpenDoorsRight()
         );
 
         TrainModClientNetworking.sendToServer(trackPayload);
@@ -1982,5 +2059,36 @@ public class TrackConfigScreen extends Screen {
         
         GeneratePathPayload payload = new GeneratePathPayload(trainId, routeId, segment.start(), segment.end());
         TrainModClientNetworking.sendToServer(payload);
+    }
+
+    private void updateDoorButtonStates() {
+        if (doorSideLeftButton != null && doorSideRightButton != null && doorSideNoneButton != null) {
+            boolean isLeftSelected = segment.getOpenDoorsLeft();
+            boolean isRightSelected = segment.getOpenDoorsRight();
+
+            doorSideLeftButton.setMessage(Text.literal(isLeftSelected ? "[L]" : "L"));
+            doorSideRightButton.setMessage(Text.literal(isRightSelected ? "[R]" : "R"));
+            doorSideNoneButton.active = isLeftSelected || isRightSelected;
+        }
+    }
+
+    private void refreshSegmentData() {
+        if (segment != null) {
+            Map<String, TrackSegment> tracks = TrackManagerClient.getTracksFor(MinecraftClient.getInstance().world);
+            if (tracks != null) {
+                for (TrackSegment currentSegment : tracks.values()) {
+                    if (currentSegment.start().equals(segment.start()) && currentSegment.end().equals(segment.end())) {
+                        this.segment = currentSegment;
+                        break;
+                    }
+                }
+            }
+        }
+    }
+
+    private void loadCurrentDoorSettings() {
+        if (segment != null && doorSideLeftButton != null && doorSideRightButton != null && doorSideNoneButton != null) {
+            updateDoorButtonStates();
+        }
     }
 }

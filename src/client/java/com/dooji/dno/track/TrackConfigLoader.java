@@ -11,6 +11,7 @@ import net.minecraft.util.Identifier;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 public class TrackConfigLoader {
@@ -23,8 +24,9 @@ public class TrackConfigLoader {
         try {
             Map<String, JsonObject> combined = new HashMap<>();
             
-            for (Map.Entry<Identifier, Resource> entry : resourceManager.findResources("rails", path -> path.getPath().endsWith(".json")).entrySet()) {
-                try (InputStreamReader reader = new InputStreamReader(entry.getValue().getInputStream())) {
+            List<Resource> resources = resourceManager.getAllResources(Identifier.of("densha-no-omocha", "rails.json"));
+            for (Resource resource : resources) {
+                try (InputStreamReader reader = new InputStreamReader(resource.getInputStream())) {
                     JsonObject json = GSON.fromJson(reader, JsonObject.class);
 
                     for (Map.Entry<String, JsonElement> trackEntry : json.entrySet()) {
@@ -47,9 +49,7 @@ public class TrackConfigLoader {
                 String icon = trackData.has("icon") ? trackData.get("icon").getAsString() : null;
                 String description = trackData.has("description") ? trackData.get("description").getAsString() : null;
 
-                if (model != null && !model.isEmpty()) {
-                    TRACK_TYPES.put(namespacedId, new TrackTypeData(name, model, repeatInterval, flipV, icon, description));
-                }
+                TRACK_TYPES.put(namespacedId, new TrackTypeData(name, model, repeatInterval, flipV, icon, description));
             }
 
             TrackCompatibilityLoader.loadMTRTracks(resourceManager);

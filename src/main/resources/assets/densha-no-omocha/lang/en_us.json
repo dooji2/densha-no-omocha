@@ -45,5 +45,5 @@
   "gui.dno.common.save": "Save",
   "gui.dno.common.cancel": "Cancel",
   "gui.dno.common.back": "Back",
-  "message.dno.press_shift_to_dismount": "Press Shift to dismount"
+  "message.dno.press_shift_to_dismount": "Press Left Shift to dismount"
 }

@@ -68,6 +68,7 @@ public class TrackConfigScreen extends Screen {
     private TextFieldWidget maxSpeedField;
     private TextFieldWidget stationNameField;
     private TextFieldWidget routeNameField;
+    private TextFieldWidget scalingField;
     private int hoveredButtonIndex = -1;
 
     private String selectedTrackId;
@@ -302,6 +303,10 @@ public class TrackConfigScreen extends Screen {
         this.slopeCurvatureField.setText(String.valueOf(segment.getSlopeCurvature()));
         this.addDrawableChild(this.slopeCurvatureField);
 
+        this.scalingField = new TextFieldWidget(this.textRenderer, 0, 0, fieldWidth, fieldHeight, Text.translatable("gui.dno.track_config.scaling"));
+        this.scalingField.setText(String.valueOf(segment.getScaling()));
+        this.addDrawableChild(this.scalingField);
+
         this.routeNameField = new TextFieldWidget(this.textRenderer, contentX, contentY + GUI_HEIGHT - FOOTER_HEIGHT - 55, fieldWidth, fieldHeight, Text.translatable("gui.dno.create_route.name"));
         this.routeNameField.setText("Route");
         this.addDrawableChild(this.routeNameField);
@@ -508,6 +513,7 @@ public class TrackConfigScreen extends Screen {
         this.dwellTimeField.visible = isPlatform && trackView;
         boolean isSlope = segment.start().getY() != segment.end().getY();
         this.slopeCurvatureField.visible = isSlope && trackView;
+        this.scalingField.visible = trackView;
         
         if (trackView) {
             updateTextFieldPositions();
@@ -605,6 +611,7 @@ public class TrackConfigScreen extends Screen {
         if (this.stationNameField.visible) visibleFields.add(this.stationNameField);
         if (this.dwellTimeField.visible) visibleFields.add(this.dwellTimeField);
         if (this.slopeCurvatureField.visible) visibleFields.add(this.slopeCurvatureField);
+        if (this.scalingField.visible) visibleFields.add(this.scalingField);
         
         int fieldsPerRow = 2;
         int currentRow = 0;
@@ -744,39 +751,71 @@ public class TrackConfigScreen extends Screen {
             int fieldWidth = 100;
             int fieldHeight = 20;
             int fieldSpacing = 10;
-            
+
+            List<TextFieldWidget> visibleFields = new ArrayList<>();
             if (this.maxSpeedField != null) {
-                this.maxSpeedField.setX(contentX);
-                this.maxSpeedField.setY(fieldsY);
                 this.maxSpeedField.visible = true;
+                visibleFields.add(this.maxSpeedField);
+            }
+
+            if (this.stationNameField != null && isPlatform) {
+                this.stationNameField.visible = true;
+                visibleFields.add(this.stationNameField);
             }
             
-            if (this.stationNameField != null) {
-                this.stationNameField.setX(contentX + fieldWidth + fieldSpacing);
-                this.stationNameField.setY(fieldsY);
-                this.stationNameField.visible = isPlatform;
-            }
-            
-            int secondRowY = fieldsY - fieldHeight - fieldSpacing;
-            
-            if (isPlatform && this.dwellTimeField != null) {
-                this.dwellTimeField.setX(contentX);
-                this.dwellTimeField.setY(secondRowY);
+            if (this.dwellTimeField != null && isPlatform) {
                 this.dwellTimeField.visible = true;
+                visibleFields.add(this.dwellTimeField);
             }
 
-            if (isSlope && this.slopeCurvatureField != null) {
-                this.slopeCurvatureField.setX(contentX + fieldWidth + fieldSpacing);
-                this.slopeCurvatureField.setY(secondRowY);
+            if (this.slopeCurvatureField != null && isSlope) {
                 this.slopeCurvatureField.visible = true;
+                visibleFields.add(this.slopeCurvatureField);
+            }
+            
+            if (this.scalingField != null) {
+                this.scalingField.visible = true;
+                visibleFields.add(this.scalingField);
             }
 
-            int nextY;
-            if (isPlatform || isSlope) {
-                nextY = secondRowY - (12 + BUTTON_SPACING);
-            } else {
-                nextY = fieldsY;
+            int currentCol = 0;
+            int currentRow = 0;
+            for (TextFieldWidget field : visibleFields) {
+                int x = contentX + (currentCol * (fieldWidth + fieldSpacing));
+                int y = fieldsY - (currentRow * (fieldHeight + fieldSpacing));
+                field.setX(x);
+                field.setY(y);
+
+                currentCol++;
+                if (currentCol >= 2) {
+                    currentCol = 0;
+                    currentRow++;
+                }
             }
+
+            if (this.maxSpeedField != null && !visibleFields.contains(this.maxSpeedField)) {
+                this.maxSpeedField.visible = false;
+            }
+
+            if (this.stationNameField != null && !visibleFields.contains(this.stationNameField)) {
+                this.stationNameField.visible = false;
+            }
+
+            if (this.dwellTimeField != null && !visibleFields.contains(this.dwellTimeField)) {
+                this.dwellTimeField.visible = false;
+            }
+
+            if (this.slopeCurvatureField != null && !visibleFields.contains(this.slopeCurvatureField)) {
+                this.slopeCurvatureField.visible = false;
+            }
+
+            if (this.scalingField != null && !visibleFields.contains(this.scalingField)) {
+                this.scalingField.visible = false;
+            }
+
+            int rowsUsed = (visibleFields.size() + 1) / 2;
+            int lowestFieldY = fieldsY - ((rowsUsed - 1) * (fieldHeight + fieldSpacing));
+            int nextY = lowestFieldY - (12 + BUTTON_SPACING);
 
             listHeight = Math.max(40, nextY - listY);
         } else if (isTrainConfigTab) {
@@ -1428,30 +1467,13 @@ public class TrackConfigScreen extends Screen {
     @Override
     public boolean mouseDragged(double mouseX, double mouseY, int button, double deltaX, double deltaY) {
         if (isDraggingScrollbar && button == 0) {
-            int guiY = getGuiY();
-
-            int contentY = guiY + CONTENT_PADDING;
             int contentWidth = GUI_WIDTH - SIDEBAR_WIDTH - CONTENT_PADDING * 3;
-            int contentHeight = GUI_HEIGHT - FOOTER_HEIGHT - CONTENT_PADDING * 2;
-
-            int listY;
-            if (isTrainConfigTab) {
-                if (isTrainConfigurationView) {
-                    listY = contentY + 24 + BUTTON_SPACING;
-                } else {
-                    listY = contentY + 24 + BUTTON_SPACING + 24 + BUTTON_SPACING;
-                }
-            } else {
-                listY = contentY + SEARCH_HEIGHT + BUTTON_SPACING;
-            }
-
-            int listHeight = contentHeight - (listY - contentY) - BUTTON_SPACING;
             int totalHeight = calculateTotalHeight(Math.min(BUTTON_WIDTH, contentWidth));
 
-            if (totalHeight > listHeight) {
+            if (totalHeight > lastListHeight) {
                 int mouseDelta = (int)mouseY - dragStartY;
-                int scrollableHeight = totalHeight - listHeight;
-                double scrollRatio = (double)mouseDelta / listHeight;
+                int scrollableHeight = totalHeight - lastListHeight;
+                double scrollRatio = (double)mouseDelta / lastListHeight;
 
                 scrollOffset = dragStartScrollOffset + (int)(scrollRatio * scrollableHeight);
                 scrollOffset = Math.max(0, Math.min(scrollOffset, scrollableHeight));
@@ -1872,7 +1894,10 @@ public class TrackConfigScreen extends Screen {
         double dy = segment.end().getY() - segment.start().getY();
         double dz = segment.end().getZ() - segment.start().getZ();
         
-        return Math.sqrt(dx * dx + dy * dy + dz * dz);
+        double baseLength = Math.sqrt(dx * dx + dy * dy + dz * dz);
+        double scaling = segment.getScaling();
+        
+        return baseLength * scaling;
     }
 
     private double calculateCurrentCarriageLength() {
@@ -1882,10 +1907,11 @@ public class TrackConfigScreen extends Screen {
         
         double totalLength = 0.0;
         final double SPACING_BUFFER = 1.0;
+        double scaling = segment != null ? segment.getScaling() : 1.0;
         
         for (String carriageId : currentCarriages) {
             double carriageLength = getCarriageLength(carriageId);
-            totalLength += carriageLength + SPACING_BUFFER;
+            totalLength += (carriageLength * scaling) + SPACING_BUFFER;
         }
 
         if (totalLength > 0) {
@@ -1954,6 +1980,14 @@ public class TrackConfigScreen extends Screen {
             maxSpeed = segment.getMaxSpeedKmh();
         }
 
+        double scaling;
+        try {
+            scaling = Double.parseDouble(scalingField.getText());
+        } catch (NumberFormatException e) {
+            TrainModClient.LOGGER.warn("Invalid scaling input, using default: {}", scalingField.getText(), e);
+            scaling = segment.getScaling();
+        }
+
         String stationName = stationNameField.getText();
 
         UpdateTrackSegmentPayload trackPayload = new UpdateTrackSegmentPayload(
@@ -1969,7 +2003,8 @@ public class TrackConfigScreen extends Screen {
             stationName,
             segment.getStationId(),
             segment.getOpenDoorsLeft(),
-            segment.getOpenDoorsRight()
+            segment.getOpenDoorsRight(),
+            scaling
         );
 
         TrainModClientNetworking.sendToServer(trackPayload);

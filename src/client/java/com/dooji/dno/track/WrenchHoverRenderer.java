@@ -634,6 +634,9 @@ public class WrenchHoverRenderer {
                     continue;
                 }
                 
+                double scaling = 1.0;
+                double scaledCarriageLength = carriageLength * scaling;
+                
                 TrainConfigLoader.TrainTypeData trainData = TrainConfigLoader.getTrainType(carriageId);
                 
                 if (trainData != null && trainData.model() != null && trainData.doors() != null && trainData.doors().hasDoors()) {
@@ -643,10 +646,10 @@ public class WrenchHoverRenderer {
                     if (!doorBoxes.isEmpty()) {
                         double insetDist = 0.0;
                         double inset = trainData.bogieInset();
-                        insetDist = Math.max(0.0, Math.min(0.49, inset)) * carriageLength;
+                        insetDist = Math.max(0.0, Math.min(0.49, inset)) * scaledCarriageLength;
                         
                         double frontOffset = currentOffset + insetDist;
-                        double rearOffset = currentOffset + carriageLength - insetDist;
+                        double rearOffset = currentOffset + scaledCarriageLength - insetDist;
                         
                         Vec3d frontPos = train.getPositionAlongContinuousPath(trainPathDistance - frontOffset);
                         Vec3d rearPos = train.getPositionAlongContinuousPath(trainPathDistance - rearOffset);
@@ -661,7 +664,7 @@ public class WrenchHoverRenderer {
                     }
                 }
                 
-                currentOffset += carriageLength + 1.0;
+                currentOffset += scaledCarriageLength + 1.0;
             }
         }
     }

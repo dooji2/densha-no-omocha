@@ -106,6 +106,11 @@ public class TrainBoardingManager {
             String trainId = entry.getKey();
             TrainClient train = entry.getValue();
 
+            TrackSegment siding = findTrackSegmentForTrain(trainId, world);
+            if (siding != null && siding.isSiding() && siding.getScaling() != 1.0) {
+                continue;
+            }
+
             if (train.getBoundingBoxWidths() == null || train.getBoundingBoxLengths() == null || train.getBoundingBoxHeights() == null) {
                 continue;
             }
@@ -145,16 +150,19 @@ public class TrainBoardingManager {
                     continue;
                 }
 
+                double scaling = findTrackSegmentForTrain(trainId, world) != null ? findTrackSegmentForTrain(trainId, world).getScaling() : 1.0;
+                double scaledCarriageLength = carriageLength * scaling;
+                
                 TrainConfigLoader.TrainTypeData trainData = TrainConfigLoader.getTrainType(carriageId);
                 double insetDist = 0.0;
                 
                 if (trainData != null) {
                     double inset = trainData.bogieInset();
-                    insetDist = MathHelper.clamp(inset, 0.0, 0.49) * carriageLength;
+                    insetDist = MathHelper.clamp(inset, 0.0, 0.49) * scaledCarriageLength;
                 }
 
                 double frontOffset = currentOffset + insetDist;
-                double rearOffset = currentOffset + carriageLength - insetDist;
+                double rearOffset = currentOffset + scaledCarriageLength - insetDist;
 
                 Vec3d frontPos = train.getPositionAlongContinuousPath(trainPathDistance - frontOffset);
                 Vec3d rearPos = train.getPositionAlongContinuousPath(trainPathDistance - rearOffset);
@@ -180,6 +188,10 @@ public class TrainBoardingManager {
                                 }
 
                                 Box doorBox = createBoxFromCorners(corners);
+                                if (siding != null && siding.getScaling() != 1.0) {
+                                    continue;
+                                }
+                                
                                 if (playerBox.intersects(doorBox)) {
                                     Vec3d collisionPoint = calculateCollisionPoint(playerBox, doorBox, frontPos, rearPos);
                                     Vec3d relativePos = convertWorldToRelativePosition(collisionPoint, frontPos, rearPos, carriageWidth, carriageHeight);
@@ -194,7 +206,7 @@ public class TrainBoardingManager {
                     }
                 }
                 
-                currentOffset += carriageLength + 1.0;
+                currentOffset += scaledCarriageLength + 1.0;
             }
         }
     }
@@ -461,5 +473,17 @@ public class TrainBoardingManager {
         double dist2 = Math.sqrt(dx2 * dx2 + dy2 * dy2 + dz2 * dz2);
 
         return dist1 <= maxDistance || dist2 <= maxDistance;
+    }
+
+    private static TrackSegment findTrackSegmentForTrain(String trainId, World world) {
+        Map<String, TrackSegment> tracks = TrackManagerClient.getTracksFor(world);
+        if (tracks == null) return null;
+        
+        for (TrackSegment segment : tracks.values()) {
+            if (segment.isSiding() && trainId.equals(segment.getTrainId())) {
+                return segment;
+            }
+        }
+        return null;
     }
 }

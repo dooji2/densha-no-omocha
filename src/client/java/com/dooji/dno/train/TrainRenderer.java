@@ -110,8 +110,13 @@ public class TrainRenderer {
             double inset = trainData.bogieInset();
             double insetDist = MathHelper.clamp(inset, 0.0, 0.49) * carriageLength;
 
-            double frontOffset = currentOffset + insetDist;
-            double rearOffset = currentOffset + carriageLength - insetDist;
+            double scaling = siding != null ? siding.getScaling() : 1.0;
+            
+            double scaledInsetDist = insetDist * scaling;
+            double scaledCarriageLength = carriageLength * scaling;
+            
+            double frontOffset = currentOffset + scaledInsetDist;
+            double rearOffset = currentOffset + scaledCarriageLength - scaledInsetDist;
 
             Vec3d frontPos = train.getPositionAlongContinuousPath(trainPathDistance - frontOffset);
             Vec3d rearPos = train.getPositionAlongContinuousPath(trainPathDistance - rearOffset);
@@ -139,9 +144,9 @@ public class TrainRenderer {
             String instanceKey = train.getTrainId() + "#" + originalIndex;
 
             renderCarriage(context, train, carriageCenter, carriageYaw, carriagePitch, cameraPos, matrices, vertexConsumers, trainData, originalIndex, carriageIds.size(), train.getDoorValue(), instanceKey);
-            renderBogies(context, train, trainData, trainPathDistance, currentOffset, insetDist, carriageCenter, carriageYaw, cameraPos, matrices, vertexConsumers, originalIndex);
+            renderBogies(context, train, trainData, trainPathDistance, currentOffset, scaledInsetDist, carriageCenter, carriageYaw, cameraPos, matrices, vertexConsumers, originalIndex);
 
-            currentOffset += carriageLength + 1.0;
+            currentOffset += scaledCarriageLength + 1.0;
         }
     }
 
@@ -152,10 +157,11 @@ public class TrainRenderer {
         }
 
         double totalLength = 0;
+        double scaling = siding.getScaling();
         for (String carriageId : carriageIds) {
             TrainConfigLoader.TrainTypeData trainData = TrainConfigLoader.getTrainType(carriageId);
             if (trainData != null) {
-                totalLength += trainData.length() + 1.0;
+                totalLength += (trainData.length() * scaling) + 1.0;
             }
         }
 
@@ -187,8 +193,11 @@ public class TrainRenderer {
             double inset = trainData.bogieInset();
             double insetDist = MathHelper.clamp(inset, 0.0, 0.49) * carriageLength;
 
-            double frontOffset = currentOffset + insetDist;
-            double rearOffset = currentOffset + carriageLength - insetDist;
+            double scaledInsetDist = insetDist * scaling;
+            double scaledCarriageLength = carriageLength * scaling;
+            
+            double frontOffset = currentOffset + scaledInsetDist;
+            double rearOffset = currentOffset + scaledCarriageLength - scaledInsetDist;
 
             Vec3d frontPos = getPositionAlongTrack(siding, frontOffset / trackLength);
             Vec3d rearPos = getPositionAlongTrack(siding, rearOffset / trackLength);
@@ -217,7 +226,7 @@ public class TrainRenderer {
 
             String instanceKey = train.getTrainId() + "#" + i;
             renderCarriage(context, train, carriageCenter, carriageYaw, carriagePitch, cameraPos, matrices, vertexConsumers, trainData, i, carriageIds.size(), 0.0f, instanceKey);
-            currentOffset += carriageLength + 1.0;
+            currentOffset += scaledCarriageLength + 1.0;
         }
     }
 
@@ -258,8 +267,15 @@ public class TrainRenderer {
 
             matrices.push();
 
-            final double renderYOffset = 0.75;
-            matrices.translate(position.x - cameraPos.x, position.y - cameraPos.y + renderYOffset, position.z - cameraPos.z);
+            TrackSegment siding = findTrackSegmentForTrain(train);
+            double scaling = 1.0;
+            if (siding != null && siding.isSiding()) {
+                scaling = siding.getScaling();
+            }
+
+            double baseRenderYOffset = 0.75;
+            double scaledRenderYOffset = baseRenderYOffset * scaling;
+            matrices.translate(position.x - cameraPos.x, position.y - cameraPos.y + scaledRenderYOffset, position.z - cameraPos.z);
 
             float yawDeg = (float) Math.toDegrees(yaw) + 180;
             matrices.multiply(RotationAxis.POSITIVE_Y.rotationDegrees(yawDeg));
@@ -270,6 +286,10 @@ public class TrainRenderer {
 
             if (trainData.isReversed()) {
                 matrices.multiply(RotationAxis.POSITIVE_Y.rotationDegrees(180));
+            }
+
+            if (scaling != 1.0) {
+                matrices.scale((float)scaling, (float)scaling, (float)scaling);
             }
 
             World world = MinecraftClient.getInstance().world;
@@ -347,13 +367,20 @@ public class TrainRenderer {
             }
         }
 
+        TrackSegment siding = findTrackSegmentForTrain(train);
+        double scaling = siding != null ? siding.getScaling() : 1.0;
+        
         double actualFrontInset = frontInsetOverride >= 0.0 ? MathHelper.clamp(frontInsetOverride, 0.0, 0.49) * data.length() : insetDist;
         double actualRearInset = rearInsetOverride >= 0.0 ? MathHelper.clamp(rearInsetOverride, 0.0, 0.49) * data.length() : insetDist;
+        
+        double scaledFrontInset = actualFrontInset * scaling;
+        double scaledRearInset = actualRearInset * scaling;
+        double scaledLength = data.length() * scaling;
 
-        double frontDist_forward = currentOffset + actualFrontInset;
-        double rearDist_forward = currentOffset + data.length() - actualRearInset;
-        double frontModelDist_reversed = currentOffset + data.length() - actualFrontInset;
-        double rearModelDist_reversed = currentOffset + actualRearInset;
+        double frontDist_forward = currentOffset + scaledFrontInset;
+        double rearDist_forward = currentOffset + scaledLength - scaledRearInset;
+        double frontModelDist_reversed = currentOffset + scaledLength - scaledFrontInset;
+        double rearModelDist_reversed = currentOffset + scaledRearInset;
 
         if (train.isReversed()) {
             renderSingleBogie(frontModel, train, trainPathDistance, frontModelDist_reversed, carriageCenter, carriageYaw, cameraPos, matrices, vertexConsumers, carriageIndex, true, frontWheels);
@@ -376,11 +403,22 @@ public class TrainRenderer {
             Vec3d pos = train.getPositionAlongContinuousPath(trainPathDistance - offset);
             double yaw = train.getRotationAlongContinuousPath(trainPathDistance - offset);
 
-            double renderYOffset = 0.8;
-            matrices.translate(pos.x - cameraPos.x, pos.y - cameraPos.y + renderYOffset, pos.z - cameraPos.z);
+            TrackSegment siding = findTrackSegmentForTrain(train);
+            double scaling = 1.0;
+            if (siding != null && siding.isSiding()) {
+                scaling = siding.getScaling();
+            }
+
+            double baseRenderYOffset = 0.8;
+            double scaledRenderYOffset = baseRenderYOffset * scaling;
+            matrices.translate(pos.x - cameraPos.x, pos.y - cameraPos.y + scaledRenderYOffset, pos.z - cameraPos.z);
             float yawDeg = (float)Math.toDegrees(yaw) + 180f;
             if (train.isReversed()) yawDeg += 180f;
             matrices.multiply(RotationAxis.POSITIVE_Y.rotationDegrees(yawDeg));
+
+            if (scaling != 1.0) {
+                matrices.scale((float)scaling, (float)scaling, (float)scaling);
+            }
 
             World world = MinecraftClient.getInstance().world;
             if (world != null) {

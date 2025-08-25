@@ -108,7 +108,9 @@ public class TrackRenderer {
             double startY = segment.start().getY();
             double endY = segment.end().getY();
 
-            int sampleCount = 200;
+            int baseSampleCount = 200;
+            double scaling = segment.getScaling();
+            int sampleCount = (int) Math.max(baseSampleCount, baseSampleCount / Math.max(0.1, scaling));
             double[] sampledX = new double[sampleCount + 1];
             double[] sampledZ = new double[sampleCount + 1];
             double[] sampledY = new double[sampleCount + 1];
@@ -135,7 +137,10 @@ public class TrackRenderer {
             }
 
             double repeatInterval = trackType.repeatInterval();
-            for (double distanceAlongPath = 0.0; distanceAlongPath <= cumulativeDistances[sampleCount] + 1e-6; distanceAlongPath += repeatInterval) {
+            double scaledRepeatInterval = repeatInterval * scaling;
+            double minSpacing = 0.1;
+            double finalRepeatInterval = Math.max(scaledRepeatInterval, minSpacing);
+            for (double distanceAlongPath = 0.0; distanceAlongPath <= cumulativeDistances[sampleCount] + 1e-6; distanceAlongPath += finalRepeatInterval) {
                 int i = 1;
                 while (i <= sampleCount && cumulativeDistances[i] < distanceAlongPath) i++;
                 if (i > sampleCount) i = sampleCount;
@@ -166,6 +171,10 @@ public class TrackRenderer {
                 matrices.translate(x - cameraPosition.x, y - cameraPosition.y, z - cameraPosition.z);
                 matrices.multiply(RotationAxis.POSITIVE_Y.rotationDegrees(yawDeg));
                 matrices.multiply(RotationAxis.POSITIVE_X.rotationDegrees(pitchDeg));
+                
+                if (scaling != 1.0) {
+                    matrices.scale((float)scaling, (float)scaling, (float)scaling);
+                }
                 
                 Matrix4f xf = matrices.peek().getPositionMatrix();
                 Renderix.enqueueInstance(model, xf, packedLight, packedOverlay);
@@ -209,7 +218,9 @@ public class TrackRenderer {
         double control2X = endCenterX - endDirectionVec.x * endControlDist;
         double control2Z = endCenterZ - endDirectionVec.z * endControlDist;
 
-        int sampleCount = 200;
+        int baseSampleCount = 200;
+        double scaling = segment.getScaling();
+        int sampleCount = (int) Math.max(baseSampleCount, baseSampleCount / Math.max(0.1, scaling));
         double[] sampledX = new double[sampleCount + 1];
         double[] sampledZ = new double[sampleCount + 1];
         double[] sampledY = new double[sampleCount + 1];
@@ -238,7 +249,10 @@ public class TrackRenderer {
         }
 
         double repeatInterval = trackType.repeatInterval();
-        for (double distanceAlongPath = 0.0; distanceAlongPath <= cumulativeDistances[sampleCount] + 1e-6; distanceAlongPath += repeatInterval) {
+        double scaledRepeatInterval = repeatInterval * segment.getScaling();
+        double minSpacing = 0.1;
+        double finalRepeatInterval = Math.max(scaledRepeatInterval, minSpacing);
+        for (double distanceAlongPath = 0.0; distanceAlongPath <= cumulativeDistances[sampleCount] + 1e-6; distanceAlongPath += finalRepeatInterval) {
             int i = 1;
             while (i <= sampleCount && cumulativeDistances[i] < distanceAlongPath) i++;
             if (i > sampleCount) i = sampleCount;
@@ -267,6 +281,10 @@ public class TrackRenderer {
             matrices.translate(x - cameraPosition.x, y - cameraPosition.y, z - cameraPosition.z);
             matrices.multiply(RotationAxis.POSITIVE_Y.rotationDegrees(yawDeg));
             matrices.multiply(RotationAxis.POSITIVE_X.rotationDegrees(pitchDeg));
+
+            if (scaling != 1.0) {
+                matrices.scale((float)scaling, (float)scaling, (float)scaling);
+            }
 
             Matrix4f xf = matrices.peek().getPositionMatrix();
             Renderix.enqueueInstance(model, xf, packedLight, packedOverlay);

@@ -242,7 +242,7 @@ public class TrackManager {
         dimensionKeyToNodes.put(dimensionKey, new ConcurrentHashMap<>(nodes));
     }
 
-    public static void updateTrackSegment(World world, BlockPos start, BlockPos end, String modelId, String type, int dwellTimeSeconds, double slopeCurvature, String routeId, int maxSpeedKmh, String stationName, String stationId, boolean openDoorsLeft, boolean openDoorsRight) {
+    public static void updateTrackSegment(World world, BlockPos start, BlockPos end, String modelId, String type, int dwellTimeSeconds, double slopeCurvature, String routeId, int maxSpeedKmh, String stationName, String stationId, boolean openDoorsLeft, boolean openDoorsRight, double scaling) {
         if (world == null || start == null || end == null) {
             return;
         }
@@ -298,6 +298,7 @@ public class TrackManager {
             updatedSegment.setStationName(stationName);
             updatedSegment.setOpenDoorsLeft(openDoorsLeft);
             updatedSegment.setOpenDoorsRight(openDoorsRight);
+            updatedSegment.setScaling(scaling);
 
             worldTracks.put(trackKey, updatedSegment);
 

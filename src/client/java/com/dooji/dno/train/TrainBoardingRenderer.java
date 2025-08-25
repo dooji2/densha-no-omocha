@@ -64,8 +64,12 @@ public class TrainBoardingRenderer {
                 double inset = trainData.bogieInset();
                 double insetDist = MathHelper.clamp(inset, 0.0, 0.49) * carriageLength;
                 
-                double frontOffset = currentOffset + insetDist;
-                double rearOffset = currentOffset + carriageLength - insetDist;
+                double scaling = 1.0;
+                double scaledInsetDist = insetDist * scaling;
+                double scaledCarriageLength = carriageLength * scaling;
+                
+                double frontOffset = currentOffset + scaledInsetDist;
+                double rearOffset = currentOffset + scaledCarriageLength - scaledInsetDist;
                 
                 double trainPathDistance = train.getCurrentPathDistance();
                 
@@ -137,6 +141,7 @@ public class TrainBoardingRenderer {
             }
 
             double currentOffset = 0.0;
+            double scaling = 1.0;
             for (int i = 0; i < orderedCarriageIds.size(); i++) {
                 String carriageId = orderedCarriageIds.get(i);
                 if (carriageId.equals(TrainBoardingManager.getCurrentBoardedCarriageId())) {
@@ -208,7 +213,7 @@ public class TrainBoardingRenderer {
 
                 TrainConfigLoader.TrainTypeData prevTrainData = TrainConfigLoader.getTrainType(carriageId);
                 if (prevTrainData != null) {
-                    currentOffset += prevTrainData.length() + 1.0;
+                    currentOffset += (prevTrainData.length() * scaling) + 1.0;
                 }
             }
         }

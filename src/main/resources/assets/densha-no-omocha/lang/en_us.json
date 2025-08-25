@@ -34,6 +34,7 @@
   "gui.dno.track_config.station_name": "Station Name",
   "gui.dno.track_config.dwell_time": "Dwell Time",
   "gui.dno.track_config.curvature": "Curvature",
+  "gui.dno.track_config.scaling": "Scaling",
   "gui.dno.track_config.current_train": "Current Train: %d carriages",
   "gui.dno.track_config.add_carriages_hint": "Add carriages to this track segment",
   "gui.dno.track_config.segment_info": "Segment: %s to %s",

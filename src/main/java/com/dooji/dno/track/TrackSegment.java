@@ -21,6 +21,7 @@ public class TrackSegment {
     private String stationId;
     private boolean openDoorsLeft;
     private boolean openDoorsRight;
+    private double scaling;
 
     public TrackSegment(BlockPos start, BlockPos end, Direction startDirection, Direction endDirection) {
         this(start, end, startDirection, endDirection, TrainMod.MOD_ID + ":default", "normal");
@@ -42,6 +43,7 @@ public class TrackSegment {
         this.stationId = "";
         this.openDoorsLeft = false;
         this.openDoorsRight = false;
+        this.scaling = 1.0;
     }
 
     public BlockPos start() {
@@ -148,6 +150,14 @@ public class TrackSegment {
         this.openDoorsRight = openDoorsRight;
     }
 
+    public double getScaling() {
+        return scaling;
+    }
+
+    public void setScaling(double scaling) {
+        this.scaling = scaling;
+    }
+
     public boolean shouldOpenDoors() {
         return openDoorsLeft || openDoorsRight;
     }
@@ -197,6 +207,7 @@ public class TrackSegment {
         
         nbt.putBoolean("openDoorsLeft", openDoorsLeft);
         nbt.putBoolean("openDoorsRight", openDoorsRight);
+        nbt.putDouble("scaling", scaling);
         
         return nbt;
     }
@@ -261,6 +272,10 @@ public class TrackSegment {
 
         if (nbt.contains("openDoorsRight")) {
             segment.setOpenDoorsRight(nbt.getBoolean("openDoorsRight").orElse(false));
+        }
+
+        if (nbt.contains("scaling")) {
+            segment.setScaling(nbt.getDouble("scaling").orElse(1.0));
         }
 
         return segment;
